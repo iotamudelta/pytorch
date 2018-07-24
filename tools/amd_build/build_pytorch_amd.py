@@ -65,7 +65,7 @@ args = (["--project-directory", proj_dir] +
         ["--output-directory", proj_dir] +
         ["--includes"] + includes +
         ["--yaml-settings", yaml_file] +
-        ["--add-static-casts", "True"] +
+        ["--add-static-casts", "False"] +
         ["--show-progress", "False"])
 
 subprocess.check_call([

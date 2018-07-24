@@ -395,36 +395,7 @@ def processKernelLaunches(string, stats):
 
         return kernel_positions
 
-    # Grab positional ranges of all kernel launchces
-    get_kernel_positions = [k for k in find_kernel_bounds(string)]
-    output_string = string
-
-    # Replace each CUDA kernel with a HIP kernel.
-    for kernel in get_kernel_positions:
-        # Get kernel components
-        params = grab_method_and_template(kernel)
-
-        # Find parenthesis after kernel launch
-        parenthesis = string.find("(", kernel["end"])
-
-        # Extract cuda kernel
-        cuda_kernel = string[params[0]["start"]:parenthesis + 1]
-        kernel_string = string[kernel['start']:kernel['end']]
-        cuda_kernel_dim3 = add_dim3(kernel_string, cuda_kernel)
-        # Keep number of kernel launch params consistent (grid dims, group dims, stream, dynamic shared size)
-        num_klp = len(extract_arguments(0, kernel["group"].replace("<<<", "(").replace(">>>", ")")))
-
-        hip_kernel = "hipLaunchKernelGGL(" + cuda_kernel_dim3[0:-1].replace(
-            ">>>", ", 0" * (4 - num_klp) + ">>>").replace("<<<", ", ").replace(">>>", ", ")
-
-        # Replace cuda kernel with hip kernel
-        output_string = output_string.replace(cuda_kernel, hip_kernel)
-
-        # Update the statistics
-        stats["kernel_launches"].append(hip_kernel)
-
-    return output_string
-
+    return string
 
 def find_parenthesis_end(input_string, start):
     inside_parenthesis = False
