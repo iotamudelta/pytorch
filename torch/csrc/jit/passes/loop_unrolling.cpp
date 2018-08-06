@@ -1,6 +1,7 @@
 #include "torch/csrc/jit/passes/loop_unrolling.h"
 
 #include "torch/csrc/jit/interned_strings.h"
+#include "torch/csrc/jit/assertions.h"
 #include "torch/csrc/jit/symbolic_variable.h"
 
 #include "torch/csrc/jit/passes/dead_code_elimination.h"
@@ -144,7 +145,7 @@ Value* intMath(Symbol sym, Value* a, Value* b) {
       ->setType(IntType::get());
 }
 Value* intMath(Symbol sym, Value* a, int64_t b) {
-  return intMath(sym, a, insertConstant(*a->owningGraph(), b));
+  return intMath(sym, a, a->owningGraph()->insertConstant(b));
 }
 
 // Replaces the builtin loop counter with a "mutable" variable outside of the loop.
@@ -152,7 +153,7 @@ void replaceLoopCounter(Node *loop) {
   Graph *graph = loop->owningGraph();
   Block *body = loop->blocks().at(0);
   WithInsertPoint guard(loop);
-  Value* init_counter = insertConstant(*graph, 0);
+  Value* init_counter = graph->insertConstant(0);
 
   loop->insertInput(2, init_counter);
   loop->insertOutput(0);

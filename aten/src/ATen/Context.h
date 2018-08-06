@@ -1,25 +1,22 @@
 #pragma once
 
-#include "ATen/ATenGeneral.h"
 #include <ATen/CPUGeneral.h>
+#include "ATen/ATenGeneral.h"
+#include "ATen/CUDAStream.h"
 #include "ATen/Generator.h"
 #include "ATen/Type.h"
 #include "ATen/Utils.h"
-#include "ATen/Error.h"
+#include "ATen/core/Error.h"
 #include "ATen/detail/CUDAHooksInterface.h"
-#include "ATen/CUDAStream.h"
+
+// This is temporary
+#include "ATen/core/ATenCoreTest.h"
 
 #include <memory>
 #include <mutex>
 #include <cstdint>
 
 namespace at {
-
-enum class IsVariable {
-  NotVariable,
-  Variable,
-  NumOptions
-};
 
 class AT_API Context {
 public:
