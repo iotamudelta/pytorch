@@ -27,6 +27,9 @@
 #   NO_CUDNN
 #     disables the cuDNN build
 #
+#   NO_MIOPEN
+#     disables the MIOpen build
+#
 #   NO_MKLDNN
 #     disables the MKLDNN build
 #
@@ -69,6 +72,11 @@
 #   CUDNN_LIBRARY
 #     specify where cuDNN is installed
 #
+#   MIOPEN_LIB_DIR
+#   MIOPEN_INCLUDE_DIR
+#   MIOPEN_LIBRARY
+#     specify where MIOpen is installed
+#
 #   NCCL_ROOT_DIR
 #   NCCL_LIB_DIR
 #   NCCL_INCLUDE_DIR
@@ -109,7 +117,7 @@ from tools.setup_helpers.env import check_env_flag, check_negative_env_flag
 
 # Before we run the setup_helpers, let's look for NO_* and WITH_*
 # variables and hotpatch the environment with the USE_* equivalent
-config_env_vars = ['CUDA', 'CUDNN', 'MKLDNN', 'NNPACK', 'DISTRIBUTED', 'DISTRIBUTED_MW',
+config_env_vars = ['CUDA', 'CUDNN', 'MIOPEN', 'MKLDNN', 'NNPACK', 'DISTRIBUTED', 'DISTRIBUTED_MW',
                    'SYSTEM_NCCL', 'GLOO_IBVERBS']
 
 
@@ -129,6 +137,8 @@ from tools.setup_helpers.cuda import USE_CUDA, CUDA_HOME, CUDA_VERSION
 from tools.setup_helpers.rocm import USE_ROCM, ROCM_HOME, ROCM_VERSION
 from tools.setup_helpers.cudnn import (USE_CUDNN, CUDNN_LIBRARY,
                                        CUDNN_LIB_DIR, CUDNN_INCLUDE_DIR)
+from tools.setup_helpers.miopen import (USE_MIOPEN, MIOPEN_LIBRARY,
+                                        MIOPEN_LIB_DIR, MIOPEN_INCLUDE_DIR)
 from tools.setup_helpers.nccl import USE_NCCL, USE_SYSTEM_NCCL, NCCL_LIB_DIR, \
     NCCL_INCLUDE_DIR, NCCL_ROOT_DIR, NCCL_SYSTEM_LIB
 from tools.setup_helpers.mkldnn import (USE_MKLDNN, MKLDNN_LIBRARY,
@@ -151,6 +161,7 @@ IS_LINUX = (platform.system() == 'Linux')
 
 FULL_CAFFE2 = check_env_flag('FULL_CAFFE2')
 BUILD_PYTORCH = check_env_flag('BUILD_PYTORCH')
+USE_CUDA_STATIC_LINK = check_env_flag('USE_CUDA_STATIC_LINK')
 
 NUM_JOBS = multiprocessing.cpu_count()
 max_jobs = os.getenv("MAX_JOBS")
@@ -239,8 +250,9 @@ for key, value in cfg_vars.items():
 
 
 ################################################################################
-# Version and create_version_file
+# Version, create_version_file, and package_name
 ################################################################################
+package_name = os.getenv('TORCH_PACKAGE_NAME', 'torch')
 version = '0.5.0a0'
 if os.getenv('PYTORCH_BUILD_VERSION'):
     assert os.getenv('PYTORCH_BUILD_NUMBER') is not None
@@ -254,6 +266,7 @@ else:
         version += '+' + sha[:7]
     except Exception:
         pass
+print("Building wheel {}-{}".format(package_name, version))
 
 
 class create_version_file(PytorchCommand):
@@ -320,6 +333,8 @@ def build_libs(libs):
         build_libs_cmd += ['--use-cuda']
         if IS_WINDOWS:
             my_env["NVTOOLEXT_HOME"] = NVTOOLEXT_HOME
+    if USE_CUDA_STATIC_LINK:
+        build_libs_cmd += ['--cuda-static-link']
     if USE_ROCM:
         build_libs_cmd += ['--use-rocm']
     if USE_NNPACK:
@@ -328,6 +343,10 @@ def build_libs(libs):
         my_env["CUDNN_LIB_DIR"] = CUDNN_LIB_DIR
         my_env["CUDNN_LIBRARY"] = CUDNN_LIBRARY
         my_env["CUDNN_INCLUDE_DIR"] = CUDNN_INCLUDE_DIR
+    if USE_MIOPEN:
+        my_env["MIOPEN_LIB_DIR"] = MIOPEN_LIB_DIR
+        my_env["MIOPEN_LIBRARY"] = MIOPEN_LIBRARY
+        my_env["MIOPEN_INCLUDE_DIR"] = MIOPEN_INCLUDE_DIR
     if USE_MKLDNN:
         my_env["MKLDNN_LIB_DIR"] = MKLDNN_LIB_DIR
         my_env["MKLDNN_LIBRARY"] = MKLDNN_LIBRARY
@@ -488,6 +507,10 @@ class build_ext(build_ext_parent):
             print('-- Detected cuDNN at ' + CUDNN_LIBRARY + ', ' + CUDNN_INCLUDE_DIR)
         else:
             print('-- Not using cuDNN')
+        if USE_MIOPEN:
+            print('-- Detected MIOpen at ' + MIOPEN_LIBRARY + ', ' + MIOPEN_INCLUDE_DIR)
+        else:
+            print('-- Not using MIOpen')
         if USE_CUDA:
             print('-- Detected CUDA at ' + CUDA_HOME)
         else:
@@ -575,7 +598,7 @@ class build_ext(build_ext_parent):
     def get_outputs(self):
         outputs = distutils.command.build_ext.build_ext.get_outputs(self)
         if FULL_CAFFE2:
-            outputs += [os.path.join(self.build_lib, d) for d in ['caffe', 'caffe2']]
+            outputs.append(os.path.join(self.build_lib, "caffe2"))
         return outputs
 
 
@@ -772,7 +795,6 @@ main_sources = [
     "torch/csrc/autograd/python_variable.cpp",
     "torch/csrc/autograd/python_variable_indexing.cpp",
     "torch/csrc/byte_order.cpp",
-    "torch/csrc/finalizer.cpp",
     "torch/csrc/jit/batched/BatchTensor.cpp",
     "torch/csrc/jit/init.cpp",
     "torch/csrc/jit/ivalue.cpp",
@@ -930,6 +952,14 @@ if USE_CUDNN:
         extra_link_args.insert(0, '-Wl,-rpath,' + CUDNN_LIB_DIR)
     extra_compile_args += ['-DUSE_CUDNN']
 
+if USE_MIOPEN:
+    main_libraries += [MIOPEN_LIBRARY]
+    include_dirs.insert(0, MIOPEN_INCLUDE_DIR)
+    extra_link_args.append('-L' + MIOPEN_LIB_DIR)
+    if not IS_WINDOWS:
+        extra_link_args.insert(0, '-Wl,-rpath,' + MIOPEN_LIB_DIR)
+    extra_compile_args += ['-DWITH_MIOPEN']
+
 if DEBUG:
     if IS_WINDOWS:
         extra_link_args.append('/DEBUG:FULL')
@@ -954,7 +984,7 @@ extensions = []
 if FULL_CAFFE2:
     packages = find_packages(exclude=('tools', 'tools.*'))
 else:
-    packages = find_packages(exclude=('tools', 'tools.*', 'caffe2', 'caffe2.*', 'caffe', 'caffe.*'))
+    packages = find_packages(exclude=('tools', 'tools.*', 'caffe2', 'caffe2.*'))
 C = Extension("torch._C",
               libraries=main_libraries,
               sources=main_sources,
@@ -1025,15 +1055,37 @@ cmdclass = {
 }
 cmdclass.update(build_dep_cmds)
 
+install_requires = [
+    'protobuf',
+    'pyyaml',
+    'numpy',
+    'future',
+    'setuptools',
+    'six',
+] if FULL_CAFFE2 else []
+
+setup_requires = ['pytest-runner'] if FULL_CAFFE2 else []
+tests_require = ['pytest-cov', 'hypothesis'] if FULL_CAFFE2 else []
+
+entry_points = {}
+if FULL_CAFFE2:
+    entry_points = {
+        'console_scripts': [
+            'convert-caffe2-to-onnx = caffe2.python.onnx.bin.conversion:caffe2_to_onnx',
+            'convert-onnx-to-caffe2 = caffe2.python.onnx.bin.conversion:onnx_to_caffe2',
+        ]
+    }
+
 if __name__ == '__main__':
     setup(
-        name="torch",
+        name=package_name,
         version=version,
         description=("Tensors and Dynamic neural networks in "
                      "Python with strong GPU acceleration"),
         ext_modules=extensions,
         cmdclass=cmdclass,
         packages=packages,
+        entry_points=entry_points,
         package_data={
             'torch': [
                 'lib/*.so*',
@@ -1066,4 +1118,8 @@ if __name__ == '__main__':
                 'lib/include/torch/csrc/cuda/*.h',
                 'lib/include/torch/torch.h',
             ]
-        })
+        },
+        install_requires=install_requires,
+        setup_requires=setup_requires,
+        tests_require=tests_require,
+    )
