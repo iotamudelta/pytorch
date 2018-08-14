@@ -147,7 +147,7 @@ If you want to compile with CUDA support, install
 
 If you want to disable CUDA support, export environment variable `NO_CUDA=1`.
 If you want to compile with ROCm support
-- install [AMD ROCm] (https://rocm.github.io/install.html) 1.8.2 or above with `miopen`, `rocrand`, `hcsparse` packages
+- install [AMD ROCm](https://rocm.github.io/install.html) 1.8.2 or above with `miopen`, `rocrand`, `hcsparse` packages
 - export environment variable `USE_ROCM=1`
 - from the PyTorch source checkout run `python tools/amd_build/build_pytorch_amd.py` prior to compilation
 
