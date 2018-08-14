@@ -103,7 +103,7 @@ We hope you never spend hours debugging your code because of bad stack traces or
 ### Fast and Lean
 
 PyTorch has minimal framework overhead. We integrate acceleration libraries
-such as Intel MKL and NVIDIA (cuDNN, NCCL) to maximize speed.
+such as Intel MKL, NVIDIA (cuDNN, NCCL), and AMD ROCm MIOpen to maximize speed.
 At the core, its CPU and GPU Tensor and neural network backends
 (TH, THC, THNN, THCUNN) are written as independent libraries with a C99 API.
 They are mature and have been tested for years.
@@ -146,6 +146,11 @@ If you want to compile with CUDA support, install
 - [NVIDIA cuDNN](https://developer.nvidia.com/cudnn) v6.x or above
 
 If you want to disable CUDA support, export environment variable `NO_CUDA=1`.
+If you want to compile with ROCm support
+- install [AMD ROCm] (https://rocm.github.io/install.html) 1.8.2 or above with `miopen`, `rocrand`, `hcsparse` packages
+- export environment variable `USE_ROCM=1`
+- from the PyTorch source checkout run `python tools/amd_build/build_pytorch_amd.py` prior to compilation
+
 Other potentially useful environment variables may be found in `setup.py`.
 
 If you want to build on Windows, Visual Studio 2017 14.11 toolset and NVTX are also needed.
