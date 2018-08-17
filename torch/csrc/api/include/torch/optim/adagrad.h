@@ -29,9 +29,7 @@ class Adagrad : public Optimizer {
       ParameterContainer&& parameters,
       const AdagradOptions& options)
       : Optimizer(std::forward<ParameterContainer>(parameters)),
-        options(options),
-        sum_(zero_buffers_like(parameters_)),
-        step_(parameters_.size(), 0) {}
+        options(options) {}
 
   void step() override;
 
