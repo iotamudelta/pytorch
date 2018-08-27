@@ -7152,6 +7152,7 @@ class TestTorch(TestCase):
         q = torch.rand(5, 5)
         self.assertTrue(isBinary(q.bernoulli()))
 
+    @skipIfRocm
     def test_normal(self):
         q = torch.Tensor(100, 100)
         q.normal_()
