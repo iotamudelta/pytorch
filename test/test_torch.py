@@ -3385,6 +3385,7 @@ class TestTorch(TestCase):
         self.assertRaises(TypeError, lambda: q.topk(4, True))
 
     @unittest.skipIf(not torch.cuda.is_available(), 'no CUDA')
+    @skipIfRocm
     def test_topk_noncontiguous_gpu(self):
         t = torch.randn(20, device="cuda")[::2]
         top1, idx1 = t.topk(5)
@@ -4381,6 +4382,7 @@ class TestTorch(TestCase):
                                  matrix_rank(aaT.cpu().numpy(), 0.01, True))
 
     @skipIfNoLapack
+    @skipIfRocm
     def test_matrix_rank(self):
         self._test_matrix_rank(self, lambda x: x)
 
@@ -6251,6 +6253,7 @@ class TestTorch(TestCase):
         # match NumPy semantics -- don't infer the size of dimension with a degree of freedom
         self.assertRaises(RuntimeError, lambda: x.reshape(0, -1))
 
+    @skipIfRocm
     def test_tensor_shape_empty(self):
         devices = ['cpu'] if not torch.cuda.is_available() else ['cpu', 'cuda']
         for device in devices:
