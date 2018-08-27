@@ -4276,7 +4276,6 @@ class TestTorch(TestCase):
         self.assertEqual(X, Xhat, 1e-8, 'VeV\' wrong')
 
     @skipIfNoLapack
-    @skipIfRocm
     def test_symeig(self):
         xval = torch.rand(100, 3)
         cov = torch.mm(xval.t(), xval)
@@ -5044,7 +5043,6 @@ class TestTorch(TestCase):
         self.assertLessEqual(inv0.dist(inv1), 1e-12)
 
     @skipIfNoLapack
-    @skipIfRocm
     def test_pstrf(self):
         def checkPsdCholesky(a, uplo, inplace):
             if inplace:
@@ -6253,7 +6251,6 @@ class TestTorch(TestCase):
         # match NumPy semantics -- don't infer the size of dimension with a degree of freedom
         self.assertRaises(RuntimeError, lambda: x.reshape(0, -1))
 
-    @skipIfRocm
     def test_tensor_shape_empty(self):
         devices = ['cpu'] if not torch.cuda.is_available() else ['cpu', 'cuda']
         for device in devices:
