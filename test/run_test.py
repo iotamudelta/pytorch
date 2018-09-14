@@ -46,7 +46,6 @@ ROCM_BLACKLIST = [
     'c10d',
     'cpp_extensions',
     'distributed',
-    'multiprocessing',
     'nccl',
     'thd_distributed',
     'utils',
