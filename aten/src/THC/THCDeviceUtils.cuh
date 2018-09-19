@@ -44,8 +44,8 @@ __device__ __forceinline__ unsigned int ACTIVE_MASK()
 #endif
 }
 
-#if defined(__HIP__)
-__device__ __forceinline__ unsigned unsigned int WARP_BALLOT(int predicate)
+#if defined(__HIP_PLATFORM_HCC__)
+__device__ __forceinline__ unsigned long long int WARP_BALLOT(int predicate)
 {
    return __ballot(predicate);
 }
