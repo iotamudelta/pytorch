@@ -109,6 +109,7 @@ __device__ __forceinline__ unsigned getLaneMaskLt() {
 __device__ __forceinline__ unsigned long long int getLaneMaskLe() {
   std::uint64_t m = (1ull << (getLaneId() + 1ull)) - 1ull;
   return m;
+}
 #else
 __device__ __forceinline__ unsigned getLaneMaskLe() {
   unsigned mask;
