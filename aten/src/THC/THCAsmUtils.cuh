@@ -114,7 +114,6 @@ __device__ __forceinline__ unsigned getLaneMaskLe() {
   unsigned mask;
   asm("mov.u32 %0, %%lanemask_le;" : "=r"(mask));
   return mask;
-#endif
 }
 #endif
 
