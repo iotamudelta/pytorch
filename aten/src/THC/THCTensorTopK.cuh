@@ -176,7 +176,11 @@ __device__ void countRadixUsingMask(CountType counts[RadixSize],
 #pragma unroll
     for (unsigned int j = 0; j < RadixSize; ++j) {
       bool vote = hasVal && (digitInRadix == j);
+#if defined (__HIP__)
+      counts[j] += __popcll(WARP_BALLOT(vote, ACTIVE_MASK()));
+#else
       counts[j] += __popc(WARP_BALLOT(vote, ACTIVE_MASK()));
+#endif
     }
   }
 
