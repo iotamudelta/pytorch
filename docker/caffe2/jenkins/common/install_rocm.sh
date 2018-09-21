@@ -7,7 +7,7 @@ install_ubuntu() {
     apt-get install -y wget
     apt-get install -y libopenblas-dev
 
-    DEB_ROCM_REPO=http://repo.radeon.com/rocm/misc/facebook/apt/.apt_1.9.white_rabbit/debian/
+    DEB_ROCM_REPO=http://repo.radeon.com/rocm/misc/facebook/apt/.apt_1.9.white_rabbit/debian
     # Add rocm repository
     wget -qO - $DEB_ROCM_REPO/rocm.gpg.key | apt-key add -
     echo "deb [arch=amd64] $DEB_ROCM_REPO xenial main" > /etc/apt/sources.list.d/rocm.list
@@ -24,8 +24,8 @@ install_ubuntu() {
                    rocm-profiler \
                    cxlactivitylogger \
 		   rocsparse \
-		   hipsparse \
-		   rocrand
+                   hipsparse \
+                   rocrand
 
     # hotfix a bug in hip's cmake files, this has been fixed in
     # https://github.com/ROCm-Developer-Tools/HIP/pull/516 but for
