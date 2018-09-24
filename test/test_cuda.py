@@ -1174,8 +1174,8 @@ class TestCuda(TestCase):
         TestTorch._test_cat_empty(self, use_cuda=True)
 
     def test_bernoulli(self):
-        x = torch.tensor([0, 1], dtype=torch.float32, device='cuda')
-        self.assertEqual(x.bernoulli().tolist(), [0, 1])
+        TestTorch._test_bernoulli(self, torch.double, 'cuda')
+        TestTorch._test_bernoulli(self, torch.half, 'cuda')
 
     def test_cat_bad_input_sizes(self):
         x = torch.randn(2, 1).cuda()
@@ -1530,6 +1530,17 @@ class TestCuda(TestCase):
         torch.cuda.manual_seed(5214)
         r = torch.multinomial(p, 1)
         self.assertNotEqual(r.min().item(), 0)
+
+        # multinomial without repeat but with less nonzero
+        # elements than draws
+        # the intention currently is to return 0 for those
+        # and match CPU behaviour, see issue #9062
+        p = torch.zeros(1, 5, device="cuda")
+        p[:, 1] = 1
+        r = torch.multinomial(p, 2, replacement=False)
+        expected = torch.zeros(1, 2, device="cuda", dtype=torch.long)
+        expected[:, 0] = 1
+        self.assertEqual(r, expected)
 
     @staticmethod
     def mute():
