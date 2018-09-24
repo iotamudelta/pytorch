@@ -27,13 +27,6 @@ install_ubuntu() {
                    hipsparse \
                    rocrand
 
-    # hotfix a bug in hip's cmake files, this has been fixed in
-    # https://github.com/ROCm-Developer-Tools/HIP/pull/516 but for
-    # some reason it has not included in the latest rocm release
-    if [[ -f /opt/rocm/hip/cmake/FindHIP.cmake ]]; then
-        sudo sed -i 's/\ -I${dir}/\ $<$<BOOL:${dir}>:-I${dir}>/' /opt/rocm/hip/cmake/FindHIP.cmake
-    fi
-    
     # HIP has a bug that drops DEBUG symbols in generated MakeFiles.
     # https://github.com/ROCm-Developer-Tools/HIP/pull/588
     if [[ -f /opt/rocm/hip/cmake/FindHIP.cmake ]]; then
