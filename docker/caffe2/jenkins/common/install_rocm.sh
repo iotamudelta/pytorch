@@ -25,7 +25,8 @@ install_ubuntu() {
                    cxlactivitylogger \
                    rocsparse \
                    hipsparse \
-                   rocrand
+                   rocrand \
+                   Thrust
 
     # HIP has a bug that drops DEBUG symbols in generated MakeFiles.
     # https://github.com/ROCm-Developer-Tools/HIP/pull/588
@@ -39,13 +40,6 @@ install_centos() {
     exit 1
 }
  
-install_hip_thrust() {
-    # Needed for now, will be replaced soon
-    git clone --recursive https://github.com/ROCmSoftwarePlatform/Thrust.git /data/Thrust
-    rm -rf /data/Thrust/thrust/system/cuda/detail/cub-hip
-    git clone --recursive https://github.com/ROCmSoftwarePlatform/cub-hip.git /data/Thrust/thrust/system/cuda/detail/cub-hip
-}
-
 # Install Python packages depending on the base OS
 if [ -f /etc/lsb-release ]; then
   install_ubuntu
@@ -55,5 +49,3 @@ else
   echo "Unable to determine OS..."
   exit 1
 fi
-
-install_hip_thrust
