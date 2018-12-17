@@ -198,13 +198,8 @@ inline void rearrangeDims(detail::TensorInfo<T1, IndexType>* aInfo,
 
 // Threads per block for our apply kernel
 // FIXME: use occupancy calculator instead
-#if defined(__HIP_PLATFORM_HCC__)
-#define AT_APPLY_THREADS_PER_BLOCK 64 * 16
-#define AT_APPLY_BLOCKS_PER_SM 4
-#else
 #define AT_APPLY_THREADS_PER_BLOCK 32 * 16
 #define AT_APPLY_BLOCKS_PER_SM 4
-#endif
 
 // The `remaining_steps` argument is used to support Op that operates on
 // multiple elements at the same time. Generally, the strategy of ApplyOpN is to

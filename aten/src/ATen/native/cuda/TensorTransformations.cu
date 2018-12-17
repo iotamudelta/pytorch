@@ -11,13 +11,8 @@
 namespace at {
 namespace native {
 
-#if defined(__HIP_PLATFORM_HCC__)
-#define AT_APPLY_THREADS_PER_BLOCK 64 * 16
-#define AT_APPLY_BLOCKS_PER_SM 4
-#else
 #define AT_APPLY_THREADS_PER_BLOCK 32 * 16
 #define AT_APPLY_BLOCKS_PER_SM 4
-#endif
 
 template <typename scalar_t, typename IndexType>
 #if __CUDA_ARCH__ >= 350 || defined __HIP_PLATFORM_HCC__
