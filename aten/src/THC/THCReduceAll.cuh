@@ -25,7 +25,9 @@ template <typename T,
           typename ReduceOp,
           int ADims>
 __global__ void
-__launch_bounds__(1024)
+#if defined(__HIP_PLATFORM__HCC__)
+__launch_bounds__(THC_REDUCE_ALL_BLOCK_SIZE)
+#endif
 kernelReduceAll(TensorInfo<T, IndexType> in,
                 IndexType totalElements,
                 AccT init,
