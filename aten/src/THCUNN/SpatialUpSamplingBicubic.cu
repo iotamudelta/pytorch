@@ -11,7 +11,7 @@
 
 template<typename Dtype, typename Acctype>
 #if defined(__HIP_PLATFORM_HCC__)
-__launch_bounds__(1024)
+C10_LAUNCH_BOUNDS_1(1024)
 #endif
 __global__ void bicubic_interp2d_kernel(
   const int num_elements,
@@ -87,7 +87,7 @@ __global__ void bicubic_interp2d_kernel(
 // Backward (adjoint) operation 1 <- 2 (accumulates)
 template <typename Dtype, typename Acctype>
 #if defined(__HIP_PLATFORM_HCC__)
-__launch_bounds__(1024)
+C10_LAUNCH_BOUNDS_1(1024)
 #endif
 __global__ void bicubic_interp2d_backward_kernel(
   const int num_elements,

@@ -338,6 +338,9 @@ Tensor tril_indices_cuda(
 }
 
 template <typename scalar_t>
+#ifdef __HIP_PLATFORM_HCC__
+C10_LAUNCH_BOUNDS_1(cuda::getApplyThreadsPerBlock())
+#endif
 __global__
 void triu_indices_kernel(scalar_t * tensor,
                          int64_t col_offset,

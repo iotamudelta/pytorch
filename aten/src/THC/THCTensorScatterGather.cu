@@ -76,7 +76,7 @@ struct IndexToScatterGatherOffsets<IndexType, Real, -1> {
 
 template <typename IndexType, typename Real, int Dims>
 #ifdef __HIP_PLATFORM_HCC__
-__launch_bounds__(getApplyThreadsPerBlock())
+C10_LAUNCH_BOUNDS_1(getApplyThreadsPerBlock())
 #endif
 __global__ void THCudaTensor_gatherKernel(
     TensorInfo<Real, IndexType> tensor,
@@ -106,7 +106,7 @@ __global__ void THCudaTensor_gatherKernel(
 
 template <typename IndexType, typename Real, int Dims>
 #ifdef __HIP_PLATFORM_HCC__
-__launch_bounds__(getApplyThreadsPerBlock())
+C10_LAUNCH_BOUNDS_1(getApplyThreadsPerBlock())
 #endif
 __global__ void THCudaTensor_scatterKernel(
     TensorInfo<Real, IndexType> tensor,
@@ -136,7 +136,7 @@ __global__ void THCudaTensor_scatterKernel(
 
 template <typename IndexType, typename Real, int Dims>
 #ifdef __HIP_PLATFORM_HCC__
-__launch_bounds__(getApplyThreadsPerBlock())
+C10_LAUNCH_BOUNDS_1(getApplyThreadsPerBlock())
 #endif
 __global__ void THCudaTensor_scatterAddKernel(
     TensorInfo<Real, IndexType> tensor,
@@ -166,7 +166,7 @@ __global__ void THCudaTensor_scatterAddKernel(
 
 template <typename IndexType, typename Real, int Dims>
 #ifdef __HIP_PLATFORM_HCC__
-__launch_bounds__(getApplyThreadsPerBlock())
+C10_LAUNCH_BOUNDS_1(getApplyThreadsPerBlock())
 #endif
 __global__ void THCudaTensor_scatterFillKernel(
     TensorInfo<Real, IndexType> tensor,
