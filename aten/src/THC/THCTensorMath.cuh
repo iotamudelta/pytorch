@@ -102,7 +102,7 @@ struct OutputTensorSizeStride {
 
 template <typename T, typename IndexType, int Dims>
 #ifdef __HIP_PLATFORM_HCC__
-__launch_bounds__(getApplyThreadsPerBlock())
+__launch_bounds__(512)
 #endif
 __global__ void CatArrayBatchedCopy(
     T* output,
