@@ -163,22 +163,26 @@ kernelPointwiseApply3(const OffsetInfo<Ta, IndexType, ADims> a,
   }
 }
 
+inline unsigned int getApplyThreadsPerBlock() {
+  return THC_APPLY_THREADS_PER_BLOCK;
+}
+
 inline dim3 getApplyBlock() {
-  return dim3(THC_APPLY_THREADS_PER_BLOCK);
+  return dim3(getApplyThreadsPerBlock());
 }
 
 inline bool getApplyGrid(THCState* state, uint64_t totalElements, dim3& grid, int curDevice) {
   if (curDevice == -1) return false;
 
-  uint64_t numBlocks = THCCeilDiv(totalElements, static_cast<uint64_t>(THC_APPLY_THREADS_PER_BLOCK));
+  uint64_t numBlocks = THCCeilDiv(totalElements, static_cast<uint64_t>(getApplyThreadsPerBlock()));
   uint64_t maxGridX = at::cuda::getDeviceProperties(curDevice)->maxGridSize[0];
   if (numBlocks > maxGridX)
       numBlocks = maxGridX;
 
   // For 32-bit indices, make sure that gridDim.x * blockDim.x fits in 32 bits.
   if (totalElements <= INT32_MAX &&
-      numBlocks > INT32_MAX / THC_APPLY_THREADS_PER_BLOCK)
-    numBlocks = INT32_MAX / THC_APPLY_THREADS_PER_BLOCK;
+      numBlocks > INT32_MAX / getApplyThreadsPerBlock())
+    numBlocks = INT32_MAX / getApplyThreadsPerBlock();
 
   grid = dim3(numBlocks);
   return true;
