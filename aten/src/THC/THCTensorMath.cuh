@@ -1,9 +1,6 @@
 #ifndef THC_TENSORMATH_CUH
 #define THC_TENSORMATH_CUH
 
-#ifdef __HIP_PLATFORM_HCC__
-#include <THC/THCApply.cuh>
-#endif
 #include "ATen/cuda/CUDAContext.h"
 
 // Copy the kth diagonal of a matrix B to a vector A.
