@@ -172,7 +172,7 @@ kernelPointwiseApply3(const OffsetInfo<Ta, IndexType, ADims> a,
   }
 }
 
-inline unsigned int getApplyThreadsPerBlock() {
+constexpr unsigned int getApplyThreadsPerBlock() {
   return THC_APPLY_THREADS_PER_BLOCK;
 }
 
