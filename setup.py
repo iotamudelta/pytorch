@@ -146,6 +146,11 @@
 #   NCCL_INCLUDE_DIR
 #     specify where nccl is installed
 #
+#   RCCL_ROOT_DIR
+#   RCCL_LIB_DIR
+#   RCCL_INCLUDE_DIR
+#     specify where rccl is installed
+#
 #   NVTOOLSEXT_PATH (Windows only)
 #     specify where nvtoolsext is installed
 #
@@ -192,6 +197,7 @@ from tools.setup_helpers.cuda import CUDA_HOME, CUDA_VERSION
 from tools.setup_helpers.cudnn import CUDNN_LIBRARY, CUDNN_INCLUDE_DIR
 from tools.setup_helpers.miopen import MIOPEN_LIBRARY, MIOPEN_INCLUDE_DIR
 from tools.setup_helpers.nccl import NCCL_SYSTEM_LIB, NCCL_INCLUDE_DIR
+from tools.setup_helpers.rccl import USE_RCCL, RCCL_LIB_DIR, RCCL_INCLUDE_DIR, RCCL_ROOT_DIR, RCCL_SYSTEM_LIB
 
 try:
     FileNotFoundError
@@ -395,6 +401,11 @@ class build_ext(setuptools.command.build_ext.build_ext):
             report('-- Building NCCL library')
         else:
             report('-- Not using NCCL')
+        if cmake_cache_vars'USE_RCCL']:
+            report('-- Detected RCCL library at ' +
+                  RCCL_SYSTEM_LIB + ', ' + RCCL_INCLUDE_DIR)
+        else:
+            report('-- Not using RCCL')
         if cmake_cache_vars['USE_DISTRIBUTED']:
             report('-- Building with THD distributed package ')
             if IS_LINUX:

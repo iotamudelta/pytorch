@@ -121,6 +121,8 @@ if not args.out_of_place_only:
         # These files use nvrtc, hip doesn't have equivalent
         "csrc/autograd/profiler.h",
         "csrc/autograd/profiler.cpp",
+        "torch/lib/c10d/ProcessGroupGloo.hpp",
+        "torch/lib/c10d/ProcessGroupGloo.cpp",
         # These files are compatible with both cuda and hip
         "csrc/autograd/engine.cpp"
     ]

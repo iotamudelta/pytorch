@@ -874,7 +874,8 @@ for mapping in CUDA_TO_HIP_MAPPINGS:
             CAFFE2_TRIE.add(src)
             CAFFE2_MAP[src] = dst
 RE_CAFFE2_PREPROCESSOR = re.compile(CAFFE2_TRIE.pattern())
-RE_PYTORCH_PREPROCESSOR = re.compile(r'\b{0}\b'.format(PYTORCH_TRIE.pattern()))
+# Use \W instead of \b so that even if the pattern contains non-word characters, the replacement still succeeds
+RE_PYTORCH_PREPROCESSOR = re.compile(r'(\W)({0})(?=\W)'.format(PYTORCH_TRIE.pattern()))
 
 RE_QUOTE_HEADER = re.compile(r'#include "([^"]+)"')
 RE_ANGLE_HEADER = re.compile(r'#include <([^>]+)>')
@@ -895,7 +896,7 @@ def preprocessor(output_directory, filepath, stats, hip_clang_launch):
         # unsupported_calls statistics reporting is broken atm
         if is_pytorch_file(filepath):
             def pt_repl(m):
-                return PYTORCH_MAP[m.group(0)]
+                return m.group(1) + PYTORCH_MAP[m.group(2)]
             output_source = RE_PYTORCH_PREPROCESSOR.sub(pt_repl, output_source)
         else:
             def c2_repl(m):
@@ -1209,3 +1210,16 @@ def hipify(
         show_detailed=show_detailed,
         show_progress=show_progress,
         hip_clang_launch=hip_clang_launch)
+
+    # copy rccl compat file to c10d
+    rccl_compat_file = "rccl1_compat.h"
+    rccl_compat_src_filepath = os.path.join(os.path.dirname(__file__), rccl_compat_file)
+    if not os.path.exists(rccl_compat_src_filepath):
+      print("ERROR: File does not exist: " + rccl_compat_src_filepath)
+      sys.exit(1)
+    rccl_compat_dst_dir = os.path.join(output_directory, "torch", "lib", "c10d")
+    if not os.path.exists(rccl_compat_dst_dir):
+      print("ERROR: Directory does not exist: " + rccl_compat_dst_dir)
+      sys.exit(1)
+    rccl_compat_dst_filepath = os.path.join(rccl_compat_dst_dir, rccl_compat_file)
+    shutil.copy(rccl_compat_src_filepath, rccl_compat_dst_filepath)

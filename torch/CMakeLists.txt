@@ -249,6 +249,12 @@ if (USE_NCCL)
     endif()
 endif()
 
+if (USE_RCCL)
+  list(APPEND TORCH_PYTHON_SRCS
+    ${TORCH_SRC_DIR}/csrc/cuda/nccl.cpp
+    ${TORCH_SRC_DIR}/csrc/cuda/python_nccl.cpp)
+  list(APPEND TORCH_PYTHON_COMPILE_DEFINITIONS USE_RCCL)
+endif()
 add_custom_target(torch_python_stubs DEPENDS "${TORCH_SRC_DIR}/__init__.pyi")
 # For Declarations.yaml dependency
 add_dependencies(torch_python_stubs ATEN_CPU_FILES_GEN_TARGET)
