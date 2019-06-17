@@ -401,7 +401,7 @@ class build_ext(setuptools.command.build_ext.build_ext):
             report('-- Building NCCL library')
         else:
             report('-- Not using NCCL')
-        if cmake_cache_vars'USE_RCCL']:
+        if cmake_cache_vars['USE_RCCL']:
             report('-- Detected RCCL library at ' +
                   RCCL_SYSTEM_LIB + ', ' + RCCL_INCLUDE_DIR)
         else:
