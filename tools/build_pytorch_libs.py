@@ -1,20 +1,5 @@
 import os
 import sys
-import distutils
-import distutils.sysconfig
-from subprocess import check_call, check_output
-from distutils.version import LooseVersion
-from .setup_helpers.cuda import USE_CUDA, CUDA_HOME
-from .setup_helpers.dist_check import USE_DISTRIBUTED, USE_GLOO_IBVERBS
-from .setup_helpers.nccl import USE_SYSTEM_NCCL, NCCL_INCLUDE_DIR, NCCL_ROOT_DIR, NCCL_SYSTEM_LIB, USE_NCCL
-from .setup_helpers.rccl import USE_RCCL, RCCL_LIB_DIR, RCCL_INCLUDE_DIR, RCCL_ROOT_DIR, RCCL_SYSTEM_LIB
-from .setup_helpers.rocm import ROCM_HOME, ROCM_VERSION, USE_ROCM
-from .setup_helpers.nnpack import USE_NNPACK
-from .setup_helpers.qnnpack import USE_QNNPACK
-from .setup_helpers.cudnn import CUDNN_INCLUDE_DIR, CUDNN_LIBRARY, USE_CUDNN
-
-
-from pprint import pprint
 from glob import glob
 import shutil
 
