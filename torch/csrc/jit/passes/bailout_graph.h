@@ -20,6 +20,7 @@ using ::c10::ProfiledTensorTypePtr;
 // bailout points
 TORCH_API void InsertBailOuts(std::shared_ptr<Graph> graph);
 
+<<<<<<< HEAD
 // Builds a bailout graph into `target` (which is an empty graph)
 // for a given bailout point `bailout_index`
 // from the original graph `orig` (the original unoptimized graph)
@@ -28,6 +29,8 @@ TORCH_API void InsertBailOuts(std::shared_ptr<Graph> graph);
 // a graph that doesn't rely on any assumptions derived from
 // on profiling information) from a given BailOut point
 // should any of the assumptions fail for an actual input.
+=======
+>>>>>>> rocm_upstream/master
 TORCH_API std::shared_ptr<Graph> BuildBailOutGraphFrom(
     int64_t bailout_index,
     const std::shared_ptr<Graph>& orig,

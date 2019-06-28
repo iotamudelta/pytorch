@@ -260,6 +260,7 @@ class JitTestCase(TestCase):
             trace.set_graph(graph)
         return graph
 
+<<<<<<< HEAD
     def get_frame_vars(self, frames_up):
         frame = inspect.currentframe()
         i = 0
@@ -271,6 +272,8 @@ class JitTestCase(TestCase):
         defined_vars.update(frame.f_globals)
         return defined_vars
 
+=======
+>>>>>>> rocm_upstream/master
     def checkScriptRaisesRegex(self, script, inputs, exception, regex,
                                optimize=True, outputs=None, capture_output=False):
         """

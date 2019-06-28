@@ -148,10 +148,13 @@ struct BailOutInserter {
     addUnoptimizedFuncToBailouts();
   }
 
+<<<<<<< HEAD
   // Packs the original unoptimized graph into a Function constant
   // and add it as the first input to every prim::BailOut point
   // This graph will be used to compute a bailout graph for
   // any given bailout point
+=======
+>>>>>>> rocm_upstream/master
   void addUnoptimizedFuncToBailouts() {
     auto unoptimized_graph = graph_->copy();
     auto func = std::make_shared<Function>(
@@ -250,8 +253,11 @@ void InsertBailOuts(std::shared_ptr<Graph> graph) {
   ibo.run();
 }
 
+<<<<<<< HEAD
 // linearly scans through graph's nodes to locate prim::BailOut whose
 // index matches the given `index`
+=======
+>>>>>>> rocm_upstream/master
 static Node* locateBailOutNodeInUnoptimizedGraph(Block* b, int64_t index) {
   for (auto n : b->nodes()) {
     if (n->kind() == prim::BailOut && n->hasAttribute(attr::index) &&
@@ -267,6 +273,7 @@ static Node* locateBailOutNodeInUnoptimizedGraph(Block* b, int64_t index) {
   return nullptr;
 }
 
+<<<<<<< HEAD
 // Removes prim::BailOuts and hooks the guarded input directly
 // to its users
 static void removeBailouts(Block* b) {
@@ -274,6 +281,11 @@ static void removeBailouts(Block* b) {
     if (it->kind() == prim::BailOut) {
       // clear profiling information
       it->inputs().at(0)->setType(TensorType::create());
+=======
+static void removeBailouts(Block* b) {
+  for (auto it = b->nodes().begin(); it != b->nodes().end(); it++) {
+    if (it->kind() == prim::BailOut) {
+>>>>>>> rocm_upstream/master
       it->output()->replaceAllUsesWith(it->inputs().at(0));
       it.destroyCurrent();
     } else {
@@ -284,7 +296,10 @@ static void removeBailouts(Block* b) {
   }
 }
 
+<<<<<<< HEAD
 // see `bailout_graph.h`
+=======
+>>>>>>> rocm_upstream/master
 TORCH_API std::shared_ptr<Graph> BuildBailOutGraphFrom(
     int64_t bailout_index,
     const std::shared_ptr<Graph>& orig,

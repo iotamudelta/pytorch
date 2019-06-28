@@ -217,8 +217,12 @@ Tensor empty_like(
     //                        PerTensorAffine scheme right now");
     return at::_empty_affine_quantized(self.sizes(), self.options(),
                                        self.q_scale(),
+<<<<<<< HEAD
                                        self.q_zero_point(),
                                        use_memory_format);
+=======
+                                       self.q_zero_point());
+>>>>>>> rocm_upstream/master
   }
 
   return at::empty(self.sizes(), options, use_memory_format);

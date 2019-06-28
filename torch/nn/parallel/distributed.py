@@ -427,10 +427,15 @@ class DistributedDataParallel(Module):
         """
         old_require_backward_grad_sync = self.require_backward_grad_sync
         self.require_backward_grad_sync = False
+<<<<<<< HEAD
         try:
             yield
         finally:
             self.require_backward_grad_sync = old_require_backward_grad_sync
+=======
+        yield
+        self.require_backward_grad_sync = old_require_backward_grad_sync
+>>>>>>> rocm_upstream/master
 
     def forward(self, *inputs, **kwargs):
         if self.require_forward_param_sync:

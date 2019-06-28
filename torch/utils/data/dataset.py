@@ -77,16 +77,28 @@ class IterableDataset(Dataset):
 
         >>> # Single-process loading
         >>> print(list(torch.utils.data.DataLoader(ds, num_workers=0)))
+<<<<<<< HEAD
         [3, 4, 5, 6]
+=======
+        [tensor(3), tensor(4), tensor(5), tensor(6)]
+>>>>>>> rocm_upstream/master
 
         >>> # Mult-process loading with two worker processes
         >>> # Worker 0 fetched [3, 4].  Worker 1 fetched [5, 6].
         >>> print(list(torch.utils.data.DataLoader(ds, num_workers=2)))
+<<<<<<< HEAD
         [3, 5, 4, 6]
 
         >>> # With even more workers
         >>> print(list(torch.utils.data.DataLoader(ds, num_workers=20)))
         [3, 4, 5, 6]
+=======
+        [tensor(3), tensor(5), tensor(4), tensor(6)]
+
+        >>> # With even more workers
+        >>> print(list(torch.utils.data.DataLoader(ds, num_workers=20)))
+        [tensor(3), tensor(4), tensor(5), tensor(6)]
+>>>>>>> rocm_upstream/master
 
     Example 2: splitting workload across all workers using :attr:`worker_init_fn`::
 
@@ -105,11 +117,19 @@ class IterableDataset(Dataset):
 
         >>> # Single-process loading
         >>> print(list(torch.utils.data.DataLoader(ds, num_workers=0)))
+<<<<<<< HEAD
         [3, 4, 5, 6]
         >>>
         >>> # Directly doing multi-process loading yields duplicate data
         >>> print(list(torch.utils.data.DataLoader(ds, num_workers=2)))
         [3, 3, 4, 4, 5, 5, 6, 6]
+=======
+        [tensor(3), tensor(4), tensor(5), tensor(6)]
+        >>>
+        >>> # Directly doing multi-process loading yields duplicate data
+        >>> print(list(torch.utils.data.DataLoader(ds, num_workers=2)))
+        [tensor(3), tensor(3), tensor(4), tensor(4), tensor(5), tensor(5), tensor(6), tensor(6)]
+>>>>>>> rocm_upstream/master
 
         >>> # Define a `worker_init_fn` that configures each dataset copy differently
         >>> def worker_init_fn(worker_id):
@@ -127,11 +147,19 @@ class IterableDataset(Dataset):
         >>> # Mult-process loading with the custom `worker_init_fn`
         >>> # Worker 0 fetched [3, 4].  Worker 1 fetched [5, 6].
         >>> print(list(torch.utils.data.DataLoader(ds, num_workers=2, worker_init_fn=worker_init_fn)))
+<<<<<<< HEAD
         [3, 5, 4, 6]
 
         >>> # With even more workers
         >>> print(list(torch.utils.data.DataLoader(ds, num_workers=20, worker_init_fn=worker_init_fn)))
         [3, 4, 5, 6]
+=======
+        [tensor(3), tensor(5), tensor(4), tensor(6)]
+
+        >>> # With even more workers
+        >>> print(list(torch.utils.data.DataLoader(ds, num_workers=20, worker_init_fn=worker_init_fn)))
+        [tensor(3), tensor(4), tensor(5), tensor(6)]
+>>>>>>> rocm_upstream/master
     """
 
     def __iter__(self):
