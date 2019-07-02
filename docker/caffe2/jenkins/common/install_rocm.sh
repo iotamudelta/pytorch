@@ -11,10 +11,17 @@ install_ubuntu() {
     apt-get install libc++1
     apt-get install libc++abi1
 
-    DEB_ROCM_REPO=http://repo.radeon.com/rocm/apt/debian
+    apt-get install -y dpkg-dev
+
+    mkdir -p /usr/repos
+    cd /usr/repos/
+    JOB=203
+    wget --recursive --no-parent http://compute-artifactory.amd.com/artifactory/rocm-osdb-deb/compute-roc-master-int-mi100-$JOB/
+    dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz
+    cd -
+
     # Add rocm repository
-    wget -qO - $DEB_ROCM_REPO/rocm.gpg.key | apt-key add -
-    echo "deb [arch=amd64] $DEB_ROCM_REPO xenial main" > /etc/apt/sources.list.d/rocm.list
+    echo "deb file:/usr/repos ./" > /etc/apt/sources.list.d/rocm.list
     apt-get update --allow-insecure-repositories
 
     DEBIAN_FRONTEND=noninteractive apt-get install -y --allow-unauthenticated \
