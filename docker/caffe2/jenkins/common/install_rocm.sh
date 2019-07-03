@@ -15,7 +15,7 @@ install_ubuntu() {
 
     mkdir -p /usr/repos
     cd /usr/repos/
-    JOB=203
+    JOB=220
     wget --recursive --no-parent http://compute-artifactory.amd.com/artifactory/rocm-osdb-deb/compute-roc-master-int-mi100-$JOB/
     dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz
     cd -
@@ -32,8 +32,6 @@ install_ubuntu() {
                    miopen-hip \
                    miopengemm \
                    rocblas \
-                   rocm-profiler \
-                   cxlactivitylogger \
                    rocsparse \
                    hipsparse \
                    rocrand \
