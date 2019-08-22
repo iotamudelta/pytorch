@@ -89,21 +89,8 @@ namespace {
     }
   }
 
-  static inline bool within_bounds_2d(int64_t h, int64_t w, int64_t H, int64_t W) {
-    return h >= 0 && h < H && w >= 0 && w < W;
-  }
-
   static inline bool within_bounds_3d(int64_t d, int64_t h, int64_t w, int64_t D, int64_t H, int64_t W) {
     return d >= 0 && d < D && h >= 0 && h < H && w >= 0 && w < W;
-  }
-
-  template<typename scalar_t>
-  static inline void safe_add_2d(scalar_t *data, int64_t h, int64_t w,
-                                 int64_t sH, int64_t sW, int64_t H, int64_t W,
-                                 scalar_t delta) {
-    if (within_bounds_2d(h, w, H, W)) {
-      data[h * sH + w * sW] += delta;
-    }
   }
 
   template<typename scalar_t>
@@ -144,9 +131,9 @@ namespace {
     int64_t out_sD = output.stride(2);
     int64_t out_sH = output.stride(3);
     int64_t out_sW = output.stride(4);
-    scalar_t *inp_ptr = input.data<scalar_t>();
-    scalar_t *out_ptr = output.data<scalar_t>();
-    scalar_t *grid_ptr = grid.data<scalar_t>();
+    scalar_t *inp_ptr = input.data_ptr<scalar_t>();
+    scalar_t *out_ptr = output.data_ptr<scalar_t>();
+    scalar_t *grid_ptr = grid.data_ptr<scalar_t>();
     // loop over each output pixel
     at::parallel_for(0, N, 0, [&](int64_t start, int64_t end) {
       for (int64_t n = start; n < end; ++n) {
@@ -325,11 +312,11 @@ namespace {
     int64_t gInp_sW = grad_input.stride(4);
     int64_t gGrid_sN = grad_grid.stride(0);
     int64_t gGrid_sW = grad_grid.stride(3);
-    scalar_t *inp_ptr = input.data<scalar_t>();
-    scalar_t *grid_ptr = grid.data<scalar_t>();
-    scalar_t *gOut_ptr = grad_output.data<scalar_t>();
-    scalar_t *gInp_ptr = grad_input.data<scalar_t>();
-    scalar_t *gGrid_ptr = grad_grid.data<scalar_t>();
+    scalar_t *inp_ptr = input.data_ptr<scalar_t>();
+    scalar_t *grid_ptr = grid.data_ptr<scalar_t>();
+    scalar_t *gOut_ptr = grad_output.data_ptr<scalar_t>();
+    scalar_t *gInp_ptr = grad_input.data_ptr<scalar_t>();
+    scalar_t *gGrid_ptr = grad_grid.data_ptr<scalar_t>();
     // loop over each output pixel
     at::parallel_for(0, N, 0, [&](int64_t start, int64_t end) {
       for (int64_t n = start; n < end; ++n) {
