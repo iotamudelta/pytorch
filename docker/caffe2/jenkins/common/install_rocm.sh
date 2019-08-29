@@ -15,8 +15,11 @@ install_ubuntu() {
 
     mkdir -p /usr/repos
     cd /usr/repos/
-    JOB=220
-    wget --recursive --no-parent http://compute-artifactory.amd.com/artifactory/rocm-osdb-deb/compute-roc-master-int-mi100-$JOB/
+    JOB=714
+    wget --recursive --no-parent http://compute-artifactory.amd.com/artifactory/rocm-osdb-deb/compute-rocm-dkms-no-npi-$JOB/
+    git clone https://github.com/pramenku/miopen-benchmark
+    mv miopen-benchmark/debs-714-mi100/* .
+    rm -rf miopen-benchmark
     dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz
     cd -
 
