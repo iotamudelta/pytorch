@@ -28,12 +28,11 @@ auto CopyBackwards::apply(variable_list&& grads) -> variable_list {
     // This code is kind of weirdly asymmetric.
     if (grad.is_cuda() && grad.device() != src_device) {
       grad_inputs[1] = grad.to(
-          src_type->device_type(),
-          src_type->scalarType(),
+          src_options,
           /*non_blocking=*/false,
           /*copy=*/true);
     } else {
-      grad_inputs[1] = grad.toType(*src_type);
+      grad_inputs[1] = grad.to(src_options);
     }
   }
   return grad_inputs;
@@ -42,8 +41,8 @@ auto CopyBackwards::apply(variable_list&& grads) -> variable_list {
 CopySlices::CopySlices(
     const Variable& base_var,
     at::TensorGeometry view_,
-    std::shared_ptr<Function> fn_)
-    : Function(),
+    std::shared_ptr<Node> fn_)
+    : Node(),
       base(base_var),
       view(std::move(view_)),
       fn(std::move(fn_)) {

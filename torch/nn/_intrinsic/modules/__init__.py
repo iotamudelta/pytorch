@@ -1,7 +1,13 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
-from .fused import ConvReLU2d, LinearReLU, ConvBn2d, ConvBnReLU2d
+# @lint-ignore-every PYTHON3COMPATIMPORTS
 
+from .fused import ConvBn2d
+from .fused import ConvBnReLU2d
+from .fused import ConvReLU2d
+from .fused import LinearReLU
 
 __all__ = [
-    'ConvReLU2d', 'LinearReLU', 'ConvBn2d', 'ConvBnReLU2d'
+    'ConvBn2d',
+    'ConvBnReLU2d',
+    'ConvReLU2d',
+    'LinearReLU',
 ]

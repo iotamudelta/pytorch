@@ -36,6 +36,7 @@ Creation Ops
 .. autofunction:: tensor
 .. autofunction:: sparse_coo_tensor
 .. autofunction:: as_tensor
+.. autofunction:: as_strided
 .. autofunction:: from_numpy
 .. autofunction:: zeros
 .. autofunction:: zeros_like
@@ -48,6 +49,7 @@ Creation Ops
 .. autofunction:: eye
 .. autofunction:: empty
 .. autofunction:: empty_like
+.. autofunction:: empty_strided
 .. autofunction:: full
 .. autofunction:: full_like
 
@@ -209,6 +211,8 @@ Pointwise Ops
 .. autofunction:: log10
 .. autofunction:: log1p
 .. autofunction:: log2
+.. autofunction:: logical_not
+.. autofunction:: logical_xor
 .. autofunction:: mul
 .. autofunction:: mvlgamma
 .. autofunction:: neg
@@ -288,6 +292,7 @@ Other Operations
 .. autofunction:: bincount
 .. autofunction:: broadcast_tensors
 .. autofunction:: cartesian_prod
+.. autofunction:: cdist
 .. autofunction:: combinations
 .. autofunction:: cross
 .. autofunction:: diag
@@ -333,6 +338,7 @@ BLAS and LAPACK Operations
 .. autofunction:: det
 .. autofunction:: logdet
 .. autofunction:: slogdet
+.. autofunction:: lstsq
 .. autofunction:: lu
 .. autofunction:: lu_solve
 .. autofunction:: lu_unpack
