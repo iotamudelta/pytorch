@@ -362,9 +362,9 @@ struct BenchmarkCache {
   }
 };
 
-BenchmarkCache<miopenConvFwdAlgorithm_t> fwd_algos;
-BenchmarkCache<miopenConvBwdDataAlgorithm_t> bwd_data_algos;
-BenchmarkCache<miopenConvBwdWeightsAlgorithm_t> bwd_filter_algos;
+BenchmarkCache<uint64_t> fwd_algos;
+BenchmarkCache<uint64_t> bwd_data_algos;
+BenchmarkCache<uint64_t> bwd_filter_algos;
 
 BenchmarkCache<size_t> fwd_wssizes;
 BenchmarkCache<size_t> bwd_data_wssizes;
@@ -391,166 +391,157 @@ template<typename algo_t>
 struct algorithm_search {
 };
 
+template<typename algo_t>
 size_t getWorkspaceSize(
-    const ConvolutionArgs& args, const miopenConvFwdAlgorithm_t)
+    const ConvolutionArgs& args, const uint64_t solution_id);
+
+template<>
+size_t getWorkspaceSize<miopenConvFwdAlgorithm_t>(
+    const ConvolutionArgs& args, const uint64_t solution_id)
 {
+
     size_t sz = 0;
-    miopenConvolutionForwardGetWorkSpaceSize(
-        args.handle,
-        args.wdesc.desc(),
-        args.idesc.desc(),
-        args.cdesc.desc(),
-        args.odesc.desc(),
-        &sz);
-    return sz;
-}
-size_t getWorkspaceSize(
-    const ConvolutionArgs& args, const miopenConvBwdDataAlgorithm_t)
-{
-    size_t sz = 0;
-    miopenConvolutionBackwardDataGetWorkSpaceSize(
-        args.handle,
-        args.odesc.desc(),
-        args.wdesc.desc(),
-        args.cdesc.desc(),
-        args.idesc.desc(),
-        &sz);
-    return sz;
-}
-size_t getWorkspaceSize(
-    const ConvolutionArgs& args, const miopenConvBwdWeightsAlgorithm_t)
-{
-    size_t sz = 0;
-    miopenConvolutionBackwardWeightsGetWorkSpaceSize(
-        args.handle,
-        args.odesc.desc(),
-        args.idesc.desc(),
-        args.cdesc.desc(),
-        args.wdesc.desc(),
-        &sz);
+    MIOPEN_CHECK(miopenConvolutionForwardGetSolutionWorkspaceSize(
+        args.handle, args.wdesc.desc(), args.idesc.desc(),
+        args.cdesc.desc(), args.odesc.desc(), solution_id,
+        &sz));
+
     return sz;
 }
 
-template<typename perf_t>
-perf_t getBestAlgorithm(perf_t *perfResults, bool deterministic, int n_algo) {
-  return perfResults[0];
+template<>
+size_t getWorkspaceSize<miopenConvBwdDataAlgorithm_t>(
+    const ConvolutionArgs& args, const uint64_t solution_id)
+{
+    size_t sz = 0;
+    MIOPEN_CHECK(miopenConvolutionBackwardDataGetSolutionWorkspaceSize(
+        args.handle, args.odesc.desc(), args.wdesc.desc(),
+        args.cdesc.desc(), args.idesc.desc(), solution_id,
+        &sz));
+
+    return sz;
+}
+
+template<>
+size_t getWorkspaceSize<miopenConvBwdWeightsAlgorithm_t>(
+    const ConvolutionArgs& args, const uint64_t solution_id)
+{
+    size_t sz = 0;
+    MIOPEN_CHECK(miopenConvolutionBackwardWeightsGetSolutionWorkspaceSize(
+        args.handle, args.odesc.desc(), args.idesc.desc(),
+        args.cdesc.desc(), args.wdesc.desc(), solution_id,
+        &sz));
+
+    return sz;
 }
 
 template<>
 struct algorithm_search<miopenConvFwdAlgorithm_t> {
-  using perf_t = miopenConvAlgoPerf_t;
-  using algo_t = miopenConvFwdAlgorithm_t;
 
-  static constexpr auto DEFAULT_ALGO = miopenConvolutionFwdAlgoGEMM;
-  static BenchmarkCache<algo_t>& cache() { return fwd_algos; }
+  static BenchmarkCache<uint64_t>& cache() { return fwd_algos; }
   static BenchmarkCache<size_t>& wsscache() { return fwd_wssizes; }
 
-  static perf_t findAlgorithm(const ConvolutionArgs& args) {
-    int perf_count;
-    perf_t perf_results;
-    size_t max_ws_size = getWorkspaceSize(args, DEFAULT_ALGO);
-    Workspace ws(max_ws_size);
-    MIOPEN_CHECK(miopenFindConvolutionForwardAlgorithm(
-        args.handle,
-        args.idesc.desc(), args.input.data_ptr(),
-        args.wdesc.desc(), args.weight.data_ptr(),
-        args.cdesc.desc(),
-        args.odesc.desc(), args.output.data_ptr(),
-        1,        // just return the fastest
-        &perf_count,
-        &perf_results,
-        ws.data,
-        ws.size,
-        false));
-    return perf_results;
+  static int64_t findAlgorithm(const ConvolutionArgs& args) {
+
+    size_t solutionCount;
+    MIOPEN_CHECK(miopenConvolutionForwardGetSolutionCount(
+        args.handle, args.wdesc.desc(), args.idesc.desc(),
+        args.cdesc.desc(), args.odesc.desc(),
+        &solutionCount));
+
+    miopenConvSolution_t* solutions = new miopenConvSolution_t[solutionCount];
+
+    size_t actualCount;
+    MIOPEN_CHECK(miopenConvolutionForwardGetSolution(
+        args.handle, args.wdesc.desc(), args.idesc.desc(),
+        args.cdesc.desc(), args.odesc.desc(),
+        solutionCount, &actualCount, solutions));
+
+    uint64_t solution_id = solutions[0].solution_id;
+
+    delete[] solutions;
+
+    return solution_id;
   }
 };
 
 template<>
 struct algorithm_search<miopenConvBwdDataAlgorithm_t> {
-  using perf_t = miopenConvAlgoPerf_t;
-  using algo_t = miopenConvBwdDataAlgorithm_t;
 
-  static constexpr auto DEFAULT_ALGO = miopenConvolutionBwdDataAlgoGEMM;
-  static BenchmarkCache<algo_t>& cache() { return bwd_data_algos; }
+  static BenchmarkCache<uint64_t>& cache() { return bwd_data_algos; }
   static BenchmarkCache<size_t>& wsscache() { return bwd_data_wssizes; }
 
-  static perf_t findAlgorithm(const ConvolutionArgs& args) {
-    int perf_count;
-    perf_t perf_results;
-    size_t max_ws_size = getWorkspaceSize(args, DEFAULT_ALGO);
-    Workspace ws(max_ws_size);
-    MIOPEN_CHECK(miopenFindConvolutionBackwardDataAlgorithm(
-        args.handle,
-        args.odesc.desc(), args.output.data_ptr(),
-        args.wdesc.desc(), args.weight.data_ptr(),
-        args.cdesc.desc(),
-        args.idesc.desc(), args.input.data_ptr(),
-        1,      // just return the fastest
-        &perf_count,
-        &perf_results,
-        ws.data,
-        ws.size,
-        false));
-    return perf_results;
+  static uint64_t findAlgorithm(const ConvolutionArgs& args) {
+
+    size_t solutionCount;
+    MIOPEN_CHECK(miopenConvolutionBackwardDataGetSolutionCount(
+        args.handle, args.odesc.desc(), args.wdesc.desc(),
+        args.cdesc.desc(), args.idesc.desc(),
+        &solutionCount));
+
+    miopenConvSolution_t* solutions = new miopenConvSolution_t[solutionCount];
+
+    size_t actualCount;
+    MIOPEN_CHECK(miopenConvolutionBackwardDataGetSolution(
+        args.handle, args.odesc.desc(), args.wdesc.desc(),
+        args.cdesc.desc(), args.idesc.desc(),
+        solutionCount, &actualCount, solutions));
+
+    uint64_t solution_id = solutions[0].solution_id;
+
+    delete[] solutions;
+
+    return solution_id;
   }
 };
 
 template<>
 struct algorithm_search<miopenConvBwdWeightsAlgorithm_t> {
-  using perf_t = miopenConvAlgoPerf_t;
-  using algo_t = miopenConvBwdWeightsAlgorithm_t;
 
-  static constexpr auto DEFAULT_ALGO = miopenConvolutionBwdWeightsAlgoGEMM;
-  static BenchmarkCache<algo_t>& cache() { return bwd_filter_algos; }
+  static BenchmarkCache<uint64_t>& cache() { return bwd_filter_algos; }
   static BenchmarkCache<size_t>& wsscache() { return bwd_filter_wssizes; }
 
-  static perf_t findAlgorithm(const ConvolutionArgs& args) {
-    int perf_count;
-    perf_t perf_results;
-    size_t max_ws_size = getWorkspaceSize(args, DEFAULT_ALGO);
-    Workspace ws(max_ws_size);
-    MIOPEN_CHECK(miopenFindConvolutionBackwardWeightsAlgorithm(
-        args.handle,
-        args.odesc.desc(), args.output.data_ptr(),
-        args.idesc.desc(), args.input.data_ptr(),
-        args.cdesc.desc(),
-        args.wdesc.desc(), args.weight.data_ptr(),
-        1,      // just return the fastest
-        &perf_count,
-        &perf_results,
-        ws.data,
-        ws.size,
-        false));
-    return perf_results;
+  static uint64_t findAlgorithm(const ConvolutionArgs& args) {
+
+    size_t solutionCount;
+    MIOPEN_CHECK(miopenConvolutionBackwardWeightsGetSolutionCount(
+        args.handle, args.odesc.desc(), args.idesc.desc(),
+        args.cdesc.desc(), args.wdesc.desc(),
+        &solutionCount));
+
+    miopenConvSolution_t* solutions = new miopenConvSolution_t[solutionCount];
+    
+    size_t actualCount;
+    MIOPEN_CHECK(miopenConvolutionBackwardWeightsGetSolution(
+        args.handle, args.odesc.desc(), args.idesc.desc(),
+        args.cdesc.desc(), args.wdesc.desc(),
+        solutionCount, &actualCount, solutions));
+
+    uint64_t solution_id = solutions[0].solution_id;
+
+    delete[] solutions;
+
+    return solution_id;
   }
 };
 
 template<typename algo_t>
-void findAlgorithm(const ConvolutionArgs& args, bool benchmark, algo_t* algo) {
+void findAlgorithm(const ConvolutionArgs& args, bool benchmark, uint64_t* solution_id) {
   using search = algorithm_search<algo_t>;
   auto& cache = search::cache();
   auto& wsscache = search::wsscache();
 
-  if (cache.find(args.params, algo)) {
+  if (cache.find(args.params, solution_id)) {
     return;
   }
 
-  if (args.params.deterministic && !benchmark) {
-    *algo = search::DEFAULT_ALGO;
-    return;
-  }
+  uint64_t sol_id = search::findAlgorithm(args);
+  *solution_id = sol_id;
 
-  if (cache.find(args.params, algo)) {
-    // re-check cache since another thread may have benchmarked the algorithm
-    return;
-  }
+  size_t ws_size = getWorkspaceSize<algo_t>(args, sol_id);
 
-  auto perfResults = search::findAlgorithm(args);
-  *algo = reinterpret_cast<algo_t&>(perfResults);
-
-  cache.insert(args.params, *algo);
-  wsscache.insert(args.params, perfResults.memory);
+  cache.insert(args.params, sol_id);
+  wsscache.insert(args.params, ws_size);
 
   c10::hip::HIPCachingAllocator::emptyCache();
 }
@@ -559,26 +550,15 @@ template<typename algo_t>
 Workspace chooseAlgorithm(
     const ConvolutionArgs& args,
     bool benchmark,
-    algo_t* algo)
+    uint64_t* solution_id)
 {
-  findAlgorithm(args, benchmark, algo);
+  findAlgorithm<algo_t>(args, benchmark, solution_id);
 
   using search = algorithm_search<algo_t>;
   size_t workspace_size;
   search::wsscache().find(args.params, &workspace_size);
-  try {
-    return Workspace(workspace_size);
-  } catch (const std::exception& e) {
-    hipGetLastError(); // clear OOM error
 
-    // switch to default algorithm and record it in the cache to prevent
-    // further OOM errors
-    *algo = search::DEFAULT_ALGO;
-    workspace_size = getWorkspaceSize(args, *algo);
-    search::cache().insert(args.params, *algo);
-    search::wsscache().insert(args.params, workspace_size);
-    return Workspace(workspace_size);
-  }
+  return Workspace(workspace_size);
 }
 
 // ---------------------------------------------------------------------
@@ -641,18 +621,15 @@ void raw_miopen_convolution_forward_out(
   args.odesc.set(output);
   args.cdesc.set(dataType, c_mode, input.dim() - 2, args.params.padding, args.params.stride, args.params.dilation, args.params.groups);
 
-  miopenConvFwdAlgorithm_t fwdAlg;
-  Workspace workspace = chooseAlgorithm(args, benchmark, &fwdAlg);
+  uint64_t solution_id;
+  Workspace workspace = chooseAlgorithm<miopenConvFwdAlgorithm_t>(args, benchmark, &solution_id);
 
-  Constant one(dataType, 1);
-  Constant zero(dataType, 0);
-
-  MIOPEN_CHECK(miopenConvolutionForward(
+  MIOPEN_CHECK(miopenConvolutionForwardImmediate(
     args.handle,
-    &one, args.idesc.desc(), input.data_ptr(),
     args.wdesc.desc(), weight.data_ptr(),
-    args.cdesc.desc(), fwdAlg, &zero,
-    args.odesc.desc(), output.data_ptr(), workspace.data, workspace.size));
+    args.idesc.desc(), input.data_ptr(),
+    args.cdesc.desc(),
+    args.odesc.desc(), output.data_ptr(), workspace.data, workspace.size, solution_id));
 }
 
 Tensor miopen_convolution_forward(
@@ -718,18 +695,15 @@ void raw_miopen_depthwise_convolution_forward_out(
   args.odesc.set(output);
   args.cdesc.set(dataType, c_mode, input.dim() - 2, args.params.padding, args.params.stride, args.params.dilation, args.params.groups);
 
-  miopenConvFwdAlgorithm_t fwdAlg;
-  Workspace workspace = chooseAlgorithm(args, benchmark, &fwdAlg);
+  uint64_t solution_id;
+  Workspace workspace = chooseAlgorithm<miopenConvFwdAlgorithm_t>(args, benchmark, &solution_id);
 
-  Constant one(dataType, 1);
-  Constant zero(dataType, 0);
-
-  MIOPEN_CHECK(miopenConvolutionForward(
+  MIOPEN_CHECK(miopenConvolutionForwardImmediate(
     args.handle,
-    &one, args.idesc.desc(), input.data_ptr(),
     args.wdesc.desc(), weight.data_ptr(),
-    args.cdesc.desc(), fwdAlg, &zero,
-    args.odesc.desc(), output.data_ptr(), workspace.data, workspace.size));
+    args.idesc.desc(), input.data_ptr(),
+    args.cdesc.desc(),
+    args.odesc.desc(), output.data_ptr(), workspace.data, workspace.size, solution_id));
 }
 
 Tensor miopen_depthwise_convolution_forward(
@@ -834,18 +808,15 @@ void raw_miopen_convolution_backward_input_out(
   args.odesc.set(grad_output);
   args.cdesc.set(dataType, c_mode, grad_output.dim() - 2, args.params.padding, args.params.stride, args.params.dilation, args.params.groups);
 
-  miopenConvBwdDataAlgorithm_t bwdDataAlg;
-  Workspace workspace = chooseAlgorithm(args, benchmark, &bwdDataAlg);
+  uint64_t solution_id;
+  Workspace workspace = chooseAlgorithm<miopenConvBwdDataAlgorithm_t>(args, benchmark, &solution_id);
 
-  Constant one(dataType, 1);
-  Constant zero(dataType, 0);
-
-  MIOPEN_CHECK(miopenConvolutionBackwardData(
+  MIOPEN_CHECK(miopenConvolutionBackwardDataImmediate(
       args.handle,
-      &one, args.odesc.desc(), grad_output.data_ptr(),
+      args.odesc.desc(), grad_output.data_ptr(),
       args.wdesc.desc(), weight.data_ptr(),
-      args.cdesc.desc(), bwdDataAlg, &zero,
-      args.idesc.desc(), grad_input.data_ptr(), workspace.data, workspace.size));
+      args.cdesc.desc(),
+      args.idesc.desc(), grad_input.data_ptr(), workspace.data, workspace.size, solution_id));
 }
 
 // see NOTE [ Backward vs transpose convolutions ] in src/Aten/native/cudnn/Conv.cpp
@@ -920,18 +891,15 @@ void raw_miopen_depthwise_convolution_backward_input_out(
   args.odesc.set(grad_output);
   args.cdesc.set(dataType, c_mode, grad_output.dim() - 2, args.params.padding, args.params.stride, args.params.dilation, args.params.groups);
 
-  miopenConvBwdDataAlgorithm_t bwdDataAlg;
-  Workspace workspace = chooseAlgorithm(args, benchmark, &bwdDataAlg);
+  uint64_t solution_id;
+  Workspace workspace = chooseAlgorithm<miopenConvBwdDataAlgorithm_t>(args, benchmark, &solution_id);
 
-  Constant one(dataType, 1);
-  Constant zero(dataType, 0);
-
-  MIOPEN_CHECK(miopenConvolutionBackwardData(
+  MIOPEN_CHECK(miopenConvolutionBackwardDataImmediate(
       args.handle,
-      &one, args.odesc.desc(), grad_output.data_ptr(),
+      args.odesc.desc(), grad_output.data_ptr(),
       args.wdesc.desc(), weight.data_ptr(),
-      args.cdesc.desc(), bwdDataAlg, &zero,
-      args.idesc.desc(), grad_input.data_ptr(), workspace.data, workspace.size));
+      args.cdesc.desc(),
+      args.idesc.desc(), grad_input.data_ptr(), workspace.data, workspace.size, solution_id));
 }
 
 Tensor miopen_depthwise_convolution_backward_input(
@@ -1052,18 +1020,15 @@ void raw_miopen_convolution_backward_weight_out(
   args.odesc.set(grad_output);
   args.cdesc.set(dataType, c_mode, input.dim() - 2, args.params.padding, args.params.stride, args.params.dilation, args.params.groups);
 
-  miopenConvBwdWeightsAlgorithm_t bwdFilterAlg;
-  Workspace workspace = chooseAlgorithm(args, benchmark, &bwdFilterAlg);
+  uint64_t solution_id;
+  Workspace workspace = chooseAlgorithm<miopenConvBwdWeightsAlgorithm_t>(args, benchmark, &solution_id);
 
-  Constant one(dataType, 1);
-  Constant zero(dataType, 0);
-
-  MIOPEN_CHECK(miopenConvolutionBackwardWeights(
+  MIOPEN_CHECK(miopenConvolutionBackwardWeightsImmediate(
       args.handle,
-      &one, args.odesc.desc(), grad_output.data_ptr(),
+      args.odesc.desc(), grad_output.data_ptr(),
       args.idesc.desc(), input.data_ptr(),
-      args.cdesc.desc(), bwdFilterAlg, &zero,
-      args.wdesc.desc(), grad_weight.data_ptr(), workspace.data, workspace.size));
+      args.cdesc.desc(),
+      args.wdesc.desc(), grad_weight.data_ptr(), workspace.data, workspace.size, solution_id));
 }
 
 Tensor miopen_convolution_backward_weight(
@@ -1107,18 +1072,15 @@ void raw_miopen_depthwise_convolution_backward_weight_out(
   args.odesc.set(grad_output);
   args.cdesc.set(dataType, c_mode, input.dim() - 2, args.params.padding, args.params.stride, args.params.dilation, args.params.groups);
 
-  miopenConvBwdWeightsAlgorithm_t bwdFilterAlg;
-  Workspace workspace = chooseAlgorithm(args, benchmark, &bwdFilterAlg);
+  uint64_t solution_id;
+  Workspace workspace = chooseAlgorithm<miopenConvBwdWeightsAlgorithm_t>(args, benchmark, &solution_id);
 
-  Constant one(dataType, 1);
-  Constant zero(dataType, 0);
-
-  MIOPEN_CHECK(miopenConvolutionBackwardWeights(
+  MIOPEN_CHECK(miopenConvolutionBackwardWeightsImmediate(
       args.handle,
-      &one, args.odesc.desc(), grad_output.data_ptr(),
+      args.odesc.desc(), grad_output.data_ptr(),
       args.idesc.desc(), input.data_ptr(),
-      args.cdesc.desc(), bwdFilterAlg, &zero,
-      args.wdesc.desc(), grad_weight.data_ptr(), workspace.data, workspace.size));
+      args.cdesc.desc(),
+      args.wdesc.desc(), grad_weight.data_ptr(), workspace.data, workspace.size, solution_id));
 }
 
 Tensor miopen_depthwise_convolution_backward_weight(
