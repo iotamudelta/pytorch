@@ -454,13 +454,88 @@ void THCTensor_(indexSelect)(THCState *state, THCTensor *dst, THCTensor *src, in
       static_cast<TYPE>((IDX_IS_MAJOR) ? sliceSize : numIndices),  \
       srcSelectDimSize);
 
+#ifdef __HIP_PLATFORM_HCC__
+#define SMALL_INDEX24(TENSOR_TYPE, TYPE, DST_DIM, SRC_DIM, IDX_DIM) \
+  indexSelectSmallIndex24<TENSOR_TYPE, TYPE, DST_DIM, SRC_DIM, IDX_DIM> \
+    <<<smallIndexGrid, smallIndexBlock, 0, stream>>>(              \
+      dstInfo, srcInfo, indicesInfo,                               \
+      dstSelectDim, srcSelectDim, static_cast<TYPE>(sliceSize),    \
+      srcSelectDimSize);
+
+
+#define LARGE_INDEX24(TENSOR_TYPE, TYPE,                           \
+                      DST_DIM, SRC_DIM, IDX_DIM, IDX_IS_MAJOR)     \
+  indexSelectLargeIndex24<TENSOR_TYPE, TYPE,                       \
+                          DST_DIM, SRC_DIM, IDX_DIM, IDX_IS_MAJOR> \
+    <<<largeIndexGrid, largeIndexBlock, 0, stream>>>(              \
+      dstInfo, srcInfo, indicesInfo,                               \
+      dstSelectDim, srcSelectDim, static_cast<TYPE>(dstTotalSize), \
+      static_cast<TYPE>((IDX_IS_MAJOR) ? sliceSize : numIndices),  \
+      srcSelectDimSize);
+#endif
+
   dim3 smallIndexGrid(std::min(THCCeilDiv(sliceSize, (ptrdiff_t)128), (ptrdiff_t)(mpc * 8)));
   dim3 smallIndexBlock(std::min(sliceSize, (ptrdiff_t)128));
 
   dim3 largeIndexGrid(std::min(THCCeilDiv(dstTotalSize, (ptrdiff_t)128), (ptrdiff_t)(mpc * 8)));
   dim3 largeIndexBlock(std::min(dstTotalSize, (ptrdiff_t)128));
 
+#ifdef __HIP_PLATFORM_HCC__
+  if (THCTensor_canUse24BitIndexMath(state, dst, 16777215) &&
+      THCTensor_canUse24BitIndexMath(state, src, 16777215) &&
+      THCTensor_canUse24BitIndexMath(state, indices, 16777215)) {
+//TODO change to INDEX24
+    TensorInfo<scalar_t, unsigned int> dstInfo =
+      getTensorInfo<scalar_t, THCTensor, unsigned int>(state, dst);
+    int dstSelectDim = dstInfo.collapseDims(dim);
+    dstInfo.reduceDim(dstSelectDim);
+
+    TensorInfo<scalar_t, unsigned int> srcInfo =
+      getTensorInfo<scalar_t, THCTensor, unsigned int>(state, src);
+    int srcSelectDim = srcInfo.collapseDims(dim);
+    srcInfo.reduceDim(srcSelectDim);
+
+    TensorInfo<int64_t, unsigned int> indicesInfo =
+      getTensorInfo<int64_t, THCudaLongTensor, unsigned int>(state, indices);
+    indicesInfo.collapseDims();
+
+    // A reasonable choice for when to have each thread iterate over
+    // indices to choose
+    if (numIndices <= 16) {
+      if (dstInfo.dims == 1 && srcInfo.dims == 1 && indContig) {
+        SMALL_INDEX24(scalar_t, unsigned int, 1, 1, -2);
+      } else if (dstInfo.dims == 2 && srcInfo.dims == 2 && indContig) {
+        SMALL_INDEX24(scalar_t, unsigned int, 2, 2, -2);
+      } else if (dstInfo.dims == 3 && srcInfo.dims == 3 && indContig) {
+        SMALL_INDEX24(scalar_t, unsigned int, 3, 3, -2);
+      } else {
+        SMALL_INDEX24(scalar_t, unsigned int, -1, -1, -1);
+      }
+    } else {
+      bool indexIsMajor = THCTensor_(indexShouldBeMajor)(dstInfo, dstSelectDim);
+
+      if (dstInfo.dims == 1 && srcInfo.dims == 1 && indContig) {
+        LARGE_INDEX24(scalar_t, unsigned int, 1, 1, -2, true);
+      } else if (dstInfo.dims == 2 && srcInfo.dims == 2 && indContig) {
+        if (indexIsMajor) {
+          LARGE_INDEX24(scalar_t, unsigned int, 2, 2, -2, true);
+        } else {
+          LARGE_INDEX24(scalar_t, unsigned int, 2, 2, -2, false);
+        }
+      } else if (dstInfo.dims == 3 && srcInfo.dims == 3 && indContig) {
+        if (indexIsMajor) {
+          LARGE_INDEX24(scalar_t, unsigned int, 3, 3, -2, true);
+        } else {
+          LARGE_INDEX24(scalar_t, unsigned int, 3, 3, -2, false);
+        }
+      } else {
+        LARGE_INDEX24(scalar_t, unsigned int, -1, -1, -1, true);
+      }
+    }
+  } else if (THCTensor_canUse32BitIndexMath(state, dst) &&
+#else
   if (THCTensor_canUse32BitIndexMath(state, dst) &&
+#endif
       THCTensor_canUse32BitIndexMath(state, src) &&
       THCTensor_canUse32BitIndexMath(state, indices)) {
     TensorInfo<scalar_t, unsigned int> dstInfo =
@@ -530,6 +605,7 @@ void THCTensor_(indexSelect)(THCState *state, THCTensor *dst, THCTensor *src, in
 
 #undef SMALL_INDEX
 #undef LARGE_INDEX
+#undef LARGE_INDEX24
 }
 
 #if !defined(THC_REAL_IS_BOOL) /* non bool only part */
@@ -579,6 +655,24 @@ void THCTensor_(indexAdd)(THCState *state, THCTensor *dst, int dim, THCudaLongTe
       dstAddDim, srcAddDim, srcTotalSize,                     \
       (IDX_IS_MAJOR) ? sliceSize : numIndices,                \
       dstAddDimSize);
+#ifdef __HIP_PLATFORM_HCC__
+#define SMALL_INDEX24(TENSOR_TYPE, TYPE, DST_DIM, SRC_DIM, IDX_DIM) \
+  indexAddSmallIndex24<TENSOR_TYPE, TYPE, DST_DIM, SRC_DIM, IDX_DIM> \
+    <<<smallIndexGrid, smallIndexBlock, 0, stream>>>(         \
+      dstInfo, srcInfo, indicesInfo,                          \
+      dstAddDim, srcAddDim, sliceSize, dstAddDimSize);
+
+#define LARGE_INDEX24(TENSOR_TYPE, TYPE,                      \
+                    DST_DIM, SRC_DIM, IDX_DIM, IDX_IS_MAJOR)  \
+  indexAddLargeIndex24<TENSOR_TYPE, TYPE,                     \
+                     DST_DIM, SRC_DIM, IDX_DIM, IDX_IS_MAJOR> \
+    <<<largeIndexGrid, largeIndexBlock, 0, stream>>>(         \
+      dstInfo, srcInfo, indicesInfo,                          \
+      dstAddDim, srcAddDim, srcTotalSize,                     \
+      (IDX_IS_MAJOR) ? sliceSize : numIndices,                \
+      dstAddDimSize);
+#endif
+
 
   dim3 smallIndexGrid(std::min(THCCeilDiv(sliceSize, (ptrdiff_t)128), (ptrdiff_t)(mpc * 8)));
   dim3 smallIndexBlock(std::min(sliceSize, (ptrdiff_t)128));
@@ -586,7 +680,61 @@ void THCTensor_(indexAdd)(THCState *state, THCTensor *dst, int dim, THCudaLongTe
   dim3 largeIndexGrid(std::min(THCCeilDiv(srcTotalSize, (ptrdiff_t)128), (ptrdiff_t)(mpc * 8)));
   dim3 largeIndexBlock(std::min(srcTotalSize, (ptrdiff_t)128));
 
+#ifdef __HIP_PLATFORM_HCC__
+  if (THCTensor_canUse24BitIndexMath(state, dst, 16777215) &&
+      THCTensor_canUse24BitIndexMath(state, src, 16777215) &&
+      THCTensor_canUse24BitIndexMath(state, indices, 16777215)) {
+    TensorInfo<scalar_t, unsigned int> dstInfo =
+      getTensorInfo<scalar_t, THCTensor, unsigned int>(state, dst);
+    int dstAddDim = dstInfo.collapseDims(dim);
+    dstInfo.reduceDim(dstAddDim);
+
+    TensorInfo<scalar_t, unsigned int> srcInfo =
+      getTensorInfo<scalar_t, THCTensor, unsigned int>(state, src);
+    int srcAddDim = srcInfo.collapseDims(dim);
+    srcInfo.reduceDim(srcAddDim);
+
+    TensorInfo<int64_t, unsigned int> indicesInfo =
+      getTensorInfo<int64_t, THCudaLongTensor, unsigned int>(state, indices);
+    indicesInfo.collapseDims();
+
+    // A reasonable choice for when to have each thread iterate over
+    // indices to choose
+    if (numIndices <= 16) {
+      if (dstInfo.dims == 1 && srcInfo.dims == 1 && indContig) {
+        SMALL_INDEX24(scalar_t, unsigned int, 1, 1, -2);
+      } else if (dstInfo.dims == 2 && srcInfo.dims == 2 && indContig) {
+        SMALL_INDEX24(scalar_t, unsigned int, 2, 2, -2);
+      } else if (dstInfo.dims == 3 && srcInfo.dims == 3 && indContig) {
+        SMALL_INDEX24(scalar_t, unsigned int, 3, 3, -2);
+      } else {
+        SMALL_INDEX24(scalar_t, unsigned int, -1, -1, -1);
+      }
+    } else {
+      bool indexIsMajor = THCTensor_(indexShouldBeMajor)(dstInfo, dstAddDim);
+
+      if (dstInfo.dims == 1 && srcInfo.dims == 1 && indContig) {
+        LARGE_INDEX24(scalar_t, unsigned int, 1, 1, -2, true);
+      } else if (dstInfo.dims == 2 && srcInfo.dims == 2 && indContig) {
+        if (indexIsMajor) {
+          LARGE_INDEX24(scalar_t, unsigned int, 2, 2, -2, true);
+        } else {
+          LARGE_INDEX24(scalar_t, unsigned int, 2, 2, -2, false);
+        }
+      } else if (dstInfo.dims == 3 && srcInfo.dims == 3 && indContig) {
+        if (indexIsMajor) {
+          LARGE_INDEX24(scalar_t, unsigned int, 3, 3, -2, true);
+        } else {
+          LARGE_INDEX24(scalar_t, unsigned int, 3, 3, -2, false);
+        }
+      } else {
+        LARGE_INDEX24(scalar_t, unsigned int, -1, -1, -1, true);
+      }
+    }
+  } else if (THCTensor_canUse32BitIndexMath(state, dst) &&
+#else
   if (THCTensor_canUse32BitIndexMath(state, dst) &&
+#endif
       THCTensor_canUse32BitIndexMath(state, src) &&
       THCTensor_canUse32BitIndexMath(state, indices)) {
     TensorInfo<scalar_t, unsigned int> dstInfo =
@@ -656,6 +804,7 @@ void THCTensor_(indexAdd)(THCState *state, THCTensor *dst, int dim, THCudaLongTe
 
 #undef SMALL_INDEX
 #undef LARGE_INDEX
+#undef LARGE_INDEX24
 }
 
 #endif

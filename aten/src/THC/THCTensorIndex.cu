@@ -16,6 +16,9 @@
 #include <thrust/device_ptr.h>
 #include <thrust/sort.h>
 #include <algorithm> // for std::min
+#ifdef __HIP_PLATFORM_HCC__
+#include "ATen/rocm/ROCm_uint24.hpp"
+#endif
 
 // We prefer this kernel to avoid reloading index points if the number
 // of indices is a small number.
@@ -152,6 +155,48 @@ __global__ void indexAddSmallIndex(TensorInfo<T, IndexType> dst,
   }
 }
 
+#ifdef __HIP_PLATFORM_HCC__
+// this is a specialization of the indexAddSmallIndex kernel for ROCm which
+// uses fast unsigned int24 computations
+template <typename T, typename IndexType, int DstDim, int SrcDim, int IdxDim>
+__global__ void indexAddSmallIndex24(TensorInfo<T, IndexType> dst,
+                                     TensorInfo<T, IndexType> src,
+                                     TensorInfo<int64_t, IndexType> indices,
+                                     int dstAddDim,
+                                     int srcAddDim,
+                                     IndexType innerSize,
+                                     int64_t dstAddDimSize) {
+  // In order to avoid reloading the index that we are copying, load
+  // it once to handle all of the points that are being selected, so
+  // it can be reused as much as possible. This kernel is chosen when
+  // this is a good choice (small number of chosen indices), since
+  // re-accessing indices in addition to src elements can be slow.
+  for (IndexType srcIndex = 0; srcIndex < indices.sizes[0]; ++srcIndex) {
+    // Lua indices begin at 1
+    IndexType dstIndex =
+      indices.data[IndexToOffset<int64_t, IndexType, IdxDim>::get24(srcIndex, indices)];
+    assert(dstIndex < dstAddDimSize);
+
+    // We stride over the output ignoring the indexed dimension
+    // (innerSize), whose offset calculation is handled differently
+    for (IndexType linearIndex = blockIdx.x * blockDim.x + threadIdx.x;
+         linearIndex < innerSize;
+         linearIndex += gridDim.x * blockDim.x) {
+      IndexType dstOffset =
+        IndexToOffset<T, IndexType, DstDim>::get24(linearIndex, dst);
+      dstOffset = mad24(dstIndex, dst.strides[dstAddDim], dstOffset);
+
+      IndexType srcOffset =
+        IndexToOffset<T, IndexType, SrcDim>::get24(linearIndex, src);
+      srcOffset = mad24(srcIndex, src.strides[srcAddDim], srcOffset);
+
+      atomicAdd(&dst.data[dstOffset], src.data[srcOffset]);
+    }
+  }
+}
+#endif
+
+
 // We prefer this kernel to balance parallelism across index points,
 // if there are a large number of indices.
 // This kernel in fact works for all choices of problem size, but if
@@ -199,6 +244,52 @@ __global__ void indexAddLargeIndex(TensorInfo<T, IndexType> dst,
     atomicAdd(&dst.data[dstOffset], src.data[srcOffset]);
   }
 }
+
+#ifdef __HIP_PLATFORM_HCC__
+// this is a specialization of the indexAddLargeIndex kernel for ROCm which
+// uses fast unsigned int24 computations
+template <typename T, typename IndexType, int DstDim, int SrcDim, int IdxDim,
+          bool IndexIsMajor>
+__global__ void indexAddLargeIndex24(TensorInfo<T, IndexType> dst,
+                                   TensorInfo<T, IndexType> src,
+                                   TensorInfo<int64_t, IndexType> indices,
+                                   int dstAddDim,
+                                   int srcAddDim,
+                                   IndexType totalSize,
+                                   IndexType innerSize,
+                                   int64_t dstAddDimSize) {
+  // We stride over the output including the indexed dimension
+  // (totalSize), and calculate the destination index point based on that
+  for (IndexType linearIndex = blockIdx.x * blockDim.x + threadIdx.x;
+       linearIndex < totalSize;
+       linearIndex += gridDim.x * blockDim.x) {
+    IndexType srcIndex, elementInSlice;
+    if (IndexIsMajor) {
+      srcIndex = div24(linearIndex, innerSize);
+      elementInSlice = mod24(linearIndex, innerSize);
+    }
+    else {
+      elementInSlice = div24(linearIndex, innerSize);
+      srcIndex = mod24(linearIndex, innerSize);
+    }
+
+    // Lua indices begin at 1
+    IndexType dstIndex =
+      indices.data[IndexToOffset<int64_t, IndexType, IdxDim>::get24(srcIndex, indices)];
+    assert(dstIndex < dstAddDimSize);
+
+    IndexType dstOffset =
+      IndexToOffset<T, IndexType, DstDim>::get24(elementInSlice, dst);
+    dstOffset = mad24(dstIndex, dst.strides[dstAddDim], dstOffset);
+
+    IndexType srcOffset =
+      IndexToOffset<T, IndexType, SrcDim>::get24(elementInSlice, src);
+    srcOffset = mad24(srcIndex, src.strides[srcAddDim], srcOffset);
+
+    atomicAdd(&dst.data[dstOffset], src.data[srcOffset]);
+  }
+}
+#endif
 
 // We prefer this kernel to avoid reloading index points if the number
 // of indices is a small number.
@@ -324,6 +415,48 @@ __global__ void indexSelectSmallIndex(TensorInfo<T, IndexType> dst,
   }
 }
 
+
+#ifdef __HIP_PLATFORM_HCC__
+// this is a specialization of the indexSelectSmallIndex kernel for ROCm which
+// uses fast unsigned int24 computations
+template <typename T, typename IndexType, int DstDim, int SrcDim, int IdxDim>
+__global__ void indexSelectSmallIndex24(TensorInfo<T, IndexType> dst,
+                                        TensorInfo<T, IndexType> src,
+                                        TensorInfo<int64_t, IndexType> indices,
+                                        int dstSelectDim,
+                                        int srcSelectDim,
+                                        IndexType innerSize,
+                                        int64_t srcSelectDimSize) {
+  // In order to avoid reloading the index that we are copying, load
+  // it once to handle all of the points that are being selected, so
+  // it can be reused as much as possible. This kernel is chosen when
+  // this is a good choice (small number of chosen indices), since
+  // re-accessing indices in addition to src elements can be slow.
+  for (IndexType dstIndex = 0; dstIndex < indices.sizes[0]; ++dstIndex) {
+    // Lua indices begin at 1
+    IndexType srcIndex =
+      indices.data[IndexToOffset<int64_t, IndexType, IdxDim>::get24(dstIndex, indices)];
+    assert(srcIndex < srcSelectDimSize);
+
+    // We stride over the output ignoring the indexed dimension
+    // (innerSize), whose offset calculation is handled differently
+    for (IndexType linearIndex = blockIdx.x * blockDim.x + threadIdx.x;
+         linearIndex < innerSize;
+         linearIndex += gridDim.x * blockDim.x) {
+      IndexType dstOffset =
+        IndexToOffset<T, IndexType, DstDim>::get24(linearIndex, dst);
+      dstOffset = mad24(dstIndex, dst.strides[dstSelectDim], dstOffset);
+
+      IndexType srcOffset =
+        IndexToOffset<T, IndexType, SrcDim>::get24(linearIndex, src);
+      srcOffset = mad24(srcIndex, src.strides[srcSelectDim], srcOffset);
+
+      dst.data[dstOffset] = src.data[srcOffset];
+    }
+  }
+}
+#endif
+
 // We prefer this kernel to balance parallelism across index points,
 // if there are a large number of indices.
 // This kernel in fact works for all choices of problem size, but if
@@ -371,6 +504,52 @@ __global__ void indexSelectLargeIndex(TensorInfo<T, IndexType> dst,
     dst.data[dstOffset] = src.data[srcOffset];
   }
 }
+
+#ifdef __HIP_PLATFORM_HCC__
+// this is a specialization of the indexSelectLargeIndex kernel for ROCm which
+// uses fast unsigned int24 computations
+template <typename T, typename IndexType, int DstDim, int SrcDim, int IdxDim,
+	  bool IndexIsMajor>
+__global__ void indexSelectLargeIndex24(TensorInfo<T, IndexType> dst,
+                                      TensorInfo<T, IndexType> src,
+                                      TensorInfo<int64_t, IndexType> indices,
+                                      int dstSelectDim,
+                                      int srcSelectDim,
+                                      IndexType totalSize,
+                                      IndexType innerSize,
+                                      int64_t srcSelectDimSize) {
+  // We stride over the output including the indexed dimension
+  // (totalSize), and calculate the destination index point based on that
+  for (IndexType linearIndex = blockIdx.x * blockDim.x + threadIdx.x;
+       linearIndex < totalSize;
+       linearIndex += gridDim.x * blockDim.x) {
+    IndexType dstIndex, elementInSlice;
+    if (IndexIsMajor) {
+      dstIndex = div24(linearIndex, innerSize);
+      elementInSlice = mod24(linearIndex, innerSize);
+    }
+    else {
+      elementInSlice = div24(linearIndex, innerSize);
+      dstIndex = mod24(linearIndex, innerSize);
+    }
+
+    // Lua indices begin at 1
+    IndexType srcIndex =
+      indices.data[IndexToOffset<int64_t, IndexType, IdxDim>::get24(dstIndex, indices)];
+    assert(srcIndex < srcSelectDimSize);
+
+    IndexType dstOffset =
+      IndexToOffset<T, IndexType, DstDim>::get24(elementInSlice, dst);
+    dstOffset = mad24(dstIndex, dst.strides[dstSelectDim], dstOffset);
+
+    IndexType srcOffset =
+      IndexToOffset<T, IndexType, SrcDim>::get24(elementInSlice, src);
+    srcOffset = mad24(srcIndex, src.strides[srcSelectDim], srcOffset);
+
+    dst.data[dstOffset] = src.data[srcOffset];
+  }
+}
+#endif
 
 template <int Dims, typename T, typename IndexType>
 __device__ __forceinline__ IndexType indexToOffset(
