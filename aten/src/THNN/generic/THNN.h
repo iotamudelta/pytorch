@@ -132,16 +132,6 @@ TH_API void THNN_(RReLU_updateGradInput)(
           bool train,
           bool inplace);
 
-TH_API void THNN_(Sigmoid_updateOutput)(
-          THNNState *state,
-          THTensor *input,
-          THTensor *output);
-TH_API void THNN_(Sigmoid_updateGradInput)(
-          THNNState *state,
-          THTensor *gradOutput,
-          THTensor *gradInput,
-          THTensor *output);
-
 TH_API void THNN_(SoftPlus_updateOutput)(
           THNNState *state,
           THTensor *input, THTensor *output,
@@ -177,27 +167,6 @@ TH_API void THNN_(Tanh_updateGradInput)(
           THTensor *gradOutput,
           THTensor *gradInput,
           THTensor *output);
-
-TH_API void THNN_(SpatialClassNLLCriterion_updateOutput)(
-          THNNState *state,            // library's state
-          THTensor *input,             // input tensor (4D)
-          THIndexTensor *target,       // tensor containing indexes of target classes (3D)
-          THTensor *output,            // [OUT] a one-element tensor with loss
-          int64_t reduction,
-          THTensor *weights,           // [OPTIONAL] class weights
-          THTensor *total_weight,      // [BUFFER]
-          int64_t ignore_index);       // target index to ignore (loss = 0, gradInput = 0)
-
-TH_API void THNN_(SpatialClassNLLCriterion_updateGradInput)(
-          THNNState *state,            // library's state
-          THTensor *input,             // input tensor (4D)
-          THIndexTensor *target,       // tensor containing indexes of target classes (3D)
-          THTensor *gradOutput,
-          THTensor *gradInput,         // [OUT] gradient w.r.t. input
-          int64_t reduction,
-          THTensor *weights,           // [OPTIONAL] class weights
-          THTensor *total_weight,      // [BUFFER]
-          int64_t ignore_index);       // target index to ignore (loss = 0, gradInput = 0)
 
 #endif
 #endif
