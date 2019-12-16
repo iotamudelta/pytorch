@@ -181,7 +181,7 @@ static void copy_kernel_cuda(TensorIterator& iter, bool non_blocking) {
     AT_CUDA_CHECK(THCCachingHostAllocator_recordEvent(ptr, stream));
   } else {
 #ifdef __HIP_PLATFORM_HCC__
-    AT_CUDA_CHECK(hipExtMemcpyWithStream(dst, src, nbytes, kind, stream));
+    AT_CUDA_CHECK(hipMemcpyWithStream(dst, src, nbytes, kind, stream));
 #else
     AT_CUDA_CHECK(cudaMemcpyAsync(dst, src, nbytes, kind, stream));
     AT_CUDA_CHECK(cudaStreamSynchronize(stream));

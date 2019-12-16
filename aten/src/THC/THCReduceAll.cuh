@@ -321,7 +321,7 @@ bool THC_reduceAll(THCState* state,
   if (!outOnDevice) {
     cudaStream_t stream = THCState_getCurrentStream(state);
 #ifdef __HIP_PLATFORM_HCC__
-    THCudaCheck(hipExtMemcpyWithStream(out,
+    THCudaCheck(hipMemcpyWithStream(out,
                                        devOut,
                                        sizeof(AccT),
                                        cudaMemcpyDeviceToHost,
