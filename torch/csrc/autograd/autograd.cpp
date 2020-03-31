@@ -27,7 +27,7 @@ variable_list _make_grads(
         TORCH_CHECK(
             output.numel() == 1,
             "grad can be implicitly created only for scalar outputs");
-        new_grads.emplace_back(at::ones_like(output));
+        new_grads.emplace_back(at::ones_like(output, LEGACY_CONTIGUOUS_MEMORY_FORMAT));
       }
     }
   } else {
@@ -45,7 +45,7 @@ variable_list _make_grads(
           TORCH_CHECK(
               output.numel() == 1,
               "grad can be implicitly created only for scalar outputs");
-          new_grads.emplace_back(at::ones_like(output));
+          new_grads.emplace_back(at::ones_like(output, LEGACY_CONTIGUOUS_MEMORY_FORMAT));
         }
       } else {
         // grad output is defined, just append to the new_grads
@@ -67,7 +67,7 @@ variable_list run_backward(
   roots.reserve(num_tensors);
   for (size_t i = 0; i < num_tensors; i++) {
     const Variable& output = outputs[i];
-    auto gradient_edge = output.gradient_edge();
+    auto gradient_edge = impl::gradient_edge(output);
     TORCH_CHECK(
         gradient_edge.function,
         "element ", i, " of tensors does not require grad and does not have a grad_fn",
@@ -84,7 +84,7 @@ variable_list run_backward(
       const auto output_nr = input.output_nr();
       auto grad_fn = input.grad_fn();
       if (!grad_fn) {
-        grad_fn = input.try_get_grad_accumulator();
+        grad_fn = impl::try_get_grad_accumulator(input);
       }
       TORCH_CHECK(
           input.requires_grad(),
@@ -100,11 +100,11 @@ variable_list run_backward(
   variable_list grad_inputs = Engine::get_default_engine().execute(
       roots, grad_outputs, keep_graph, create_graph, output_edges);
   // check if grad_inputs contains None or not base on the allow_unused flag
-  if (inputs.empty()) {
+  if (!inputs.empty() && !allow_unused) {
     size_t num_inputs = inputs.size();
     for (size_t i = 0; i < num_inputs; ++i) {
       TORCH_CHECK(
-          allow_unused || grad_inputs[i].defined(),
+          grad_inputs[i].defined(),
           "One of the "
           "differentiated Tensors appears to not have been used "
           "in the graph. Set allow_unused=True if this is the "

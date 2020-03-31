@@ -71,7 +71,7 @@ struct TORCH_API Function {
   // The enable_if check is to ensure that the user doesn't explicitly provide
   // the parameter X.
   template<typename X=T, typename... Args>
-  static auto apply(Args&&... args) -> c10::guts::enable_if_t<std::is_same<X,T>::value, forward_t<X,Args...>>;
+  static auto apply(Args&&... args) -> std::enable_if_t<std::is_same<X,T>::value, forward_t<X,Args...>>;
 };
 
 // Context to save information during forward that can be accessed in backward
@@ -98,7 +98,7 @@ struct TORCH_API AutogradContext {
   // save_for_backward(). Before returning them to the user, a check is made to
   // ensure that they were not modified by any in-place operations.
   variable_list get_saved_variables() const;
-  const std::unordered_set<at::TensorImpl*>& get_dirty() const;
+  const std::unordered_set<at::TensorImpl*>& get_and_bump_dirty() const;
   const std::unordered_set<at::TensorImpl*>& get_non_differentiable() const;
 
 private:
@@ -148,27 +148,23 @@ struct CppNode : public Node {
   void save_variables_to_ctx();
 };
 
-template <typename T>
-using enable_if_var_t = typename std::enable_if<std::is_constructible<Variable, T>::value>::type;
-
-template <typename T>
-using enable_if_not_var_t = typename std::enable_if<!std::is_constructible<Variable, T>::value>::type;
-
-template <typename T, typename... Args>
-enable_if_not_var_t<T> extract_vars(std::vector<bool> &is_var, variable_list& list, T&& cur, Args&& ... args) {
-  is_var.push_back(false);
-  extract_vars(is_var, list, std::forward<Args>(args)...);
-}
-
-template <typename T, typename... Args>
-enable_if_var_t<T> extract_vars(std::vector<bool> &is_var, variable_list& list, T&& cur, Args&& ... args) {
-  is_var.push_back(true);
-  list.emplace_back(cur);
-  extract_vars(is_var, list, std::forward<Args>(args)...);
-}
+struct ExtractVariables : IterArgs<ExtractVariables> {
+  std::vector<bool>& is_var_;
+  variable_list& list_;
+  ExtractVariables(std::vector<bool>& is_var, variable_list& list) : is_var_(is_var), list_(list) {}
+  void operator()(const at::Tensor& x) {
+    is_var_.push_back(true);
+    list_.emplace_back(x);
+  }
+  template <typename T>
+  void operator()(const T& x) {
+    is_var_.push_back(false);
+  }
+};
 
 template <typename... Args>
-void extract_vars(std::vector<bool> &is_var, variable_list& list, Args&& ... args) {
+inline void extract_vars(std::vector<bool> &is_var, variable_list& list, Args&&... args) {
+  ExtractVariables(is_var, list).apply(std::forward<Args>(args)...);
 }
 
 template <typename T>
@@ -179,7 +175,7 @@ typename std::enable_if<std::is_same<T, Variable>::value, T>::type to_output_typ
 
 template<class T>
 template<typename X, typename... Args>
-auto Function<T>::apply(Args&&... args) -> c10::guts::enable_if_t<std::is_same<X,T>::value, forward_t<X,Args...>> {
+auto Function<T>::apply(Args&&... args) -> std::enable_if_t<std::is_same<X,T>::value, forward_t<X,Args...>> {
   std::shared_ptr<CppNode<T>> node(new CppNode<T>(), deleteNode);
   variable_list input_vars;
 
@@ -207,7 +203,7 @@ auto Function<T>::apply(Args&&... args) -> c10::guts::enable_if_t<std::is_same<X
     outputs = T::forward(&node->ctx_, std::forward<Args>(args)...);
   }
 
-  auto wrapped_outputs = _wrap_outputs(input_vars, node->ctx_.get_non_differentiable(), node->ctx_.get_dirty(), outputs, is_executable ? node : nullptr);
+  auto wrapped_outputs = _wrap_outputs(input_vars, node->ctx_.get_non_differentiable(), node->ctx_.get_and_bump_dirty(), outputs, is_executable ? node : nullptr);
 
   node->output_info_.reserve(wrapped_outputs.size());
   for (auto& output : wrapped_outputs) {
@@ -242,6 +238,12 @@ variable_list CppNode<T>::apply(variable_list&& inputs) {
     }
   }
 
+  // Acquire lock to here protect thread safety on custom C++ Autograd Node
+  // This is needed for the custom Autograd Node since we don't know if the
+  // user defined Node will write to the shared data during backward.
+  // see Note [Thread Safety on Autograd Node]
+  std::lock_guard<std::mutex> lock(mutex_);
+
   auto outputs = T::backward(&ctx_, backward_inputs);
 
   int num_forward_inputs = is_variable_input_.size();
@@ -262,8 +264,8 @@ variable_list CppNode<T>::apply(variable_list&& inputs) {
   if (num_outputs != num_forward_inputs) {
     std::string msg("function ");
     msg += name() + " returned an incorrect number of gradients (expected ";
-    msg += std::to_string(num_forward_inputs) + ", got " ;
-    msg += std::to_string(num_outputs) + ")";
+    msg += c10::to_string(num_forward_inputs) + ", got " ;
+    msg += c10::to_string(num_outputs) + ")";
     throw std::runtime_error(msg);
   }
 
@@ -274,7 +276,7 @@ variable_list CppNode<T>::apply(variable_list&& inputs) {
       if (outputs[i].defined()) {
         std::string msg("function ");
         msg += name() + " returned a gradient different that is defined at position ";
-        msg += std::to_string(i + 1) + ", but the corresponding forward input was not a Variable";
+        msg += c10::to_string(i + 1) + ", but the corresponding forward input was not a Variable";
         throw std::runtime_error(msg);
       }
       continue;
@@ -295,6 +297,8 @@ variable_list CppNode<T>::apply(variable_list&& inputs) {
 
 template<class T>
 void CppNode<T>::release_variables() {
+  // lock to ensure thread safety, see [Thread Safety on Autograd Node]
+  std::lock_guard<std::mutex> lock(mutex_);
   ctx_.saved_variables_.clear();
   ctx_.has_freed_buffers_ = true;
 }

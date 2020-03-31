@@ -3,8 +3,8 @@
 /**
  * See README.md for instructions on how to add a new test.
  */
-#include <torch/csrc/WindowsTorchApiMacro.h>
 #include <c10/macros/Export.h>
+#include <torch/csrc/WindowsTorchApiMacro.h>
 
 namespace torch {
 namespace jit {
@@ -12,6 +12,8 @@ namespace jit {
   _(ADFormulas)                        \
   _(Attributes)                        \
   _(Blocks)                            \
+  _(CallStack)                         \
+  _(CallStackCaching)                  \
   _(CodeTemplate)                      \
   _(ControlFlow)                       \
   _(CreateAutodiffSubgraphs)           \
@@ -24,7 +26,6 @@ namespace jit {
   _(DifferentiateWithRequiresGrad)     \
   _(FromQualString)                    \
   _(InternedStrings)                   \
-  _(IValue)                            \
   _(PassManagement)                    \
   _(Proto)                             \
   _(RegisterFusionCachesKernel)        \
@@ -40,12 +41,11 @@ namespace jit {
   _(MemoryDAG)                         \
   _(IRParser)                          \
   _(ConstantPooling)                   \
-  _(ConstantPropagation)               \
-  _(NetDefConverter)                   \
   _(THNNConv)                          \
   _(ATenNativeBatchNorm)               \
   _(NoneSchemaMatch)                   \
   _(ClassParser)                       \
+  _(UnifyTypes)                        \
   _(Profiler)                          \
   _(InsertAndEliminateRedundantGuards) \
   _(InsertBailOuts)                    \
@@ -54,17 +54,39 @@ namespace jit {
   _(ThreadLocalDebugInfo)              \
   _(SubgraphMatching)                  \
   _(SubgraphRewriter)                  \
+  _(ModuleClone)                       \
+  _(ModuleCloneInstance)               \
+  _(ModuleConstant)                    \
+  _(ModuleParameter)                   \
   _(ModuleDefine)                      \
   _(QualifiedName)                     \
   _(ClassImport)                       \
   _(ProfiledTensorTypeHashing)         \
   _(ScriptObject)                      \
   _(SaveExtraFilesHook)                \
+  _(TypeTags)                          \
   _(DCE)                               \
   _(CustomFusionNestedBlocks)          \
-  _(ImportTooNew)                      \
   _(ClassDerive)                       \
-  _(Inliner)
+  _(SaveLoadTorchbind)                 \
+  _(ModuleInterfaceSerialization)      \
+  _(ClassTypeAddRemoveAttr)            \
+  _(Inliner)                           \
+  _(LiteInterpreterAdd)                \
+  _(LiteInterpreterConv)               \
+  _(LiteInterpreterInline)             \
+  _(LiteInterpreterTuple)              \
+  _(LiteInterpreterUpsampleNearest2d)  \
+  _(CommonAncestor)                    \
+  _(AutogradSymbols)                   \
+  _(MobileTypeParser)                  \
+  _(LiteInterpreterBuiltinFunction)    \
+  _(LiteInterpreterPrim)               \
+  _(LiteInterpreterLoadOrigJit)        \
+  _(LiteInterpreterWrongMethodName)    \
+  _(LiteInterpreterParams)             \
+  _(LiteInterpreterSetState)           \
+  _(TorchbindIValueAPI)
 
 #define TH_FORALL_TESTS_CUDA(_) \
   _(ArgumentSpec)               \
@@ -84,6 +106,8 @@ TH_FORALL_TESTS_CUDA(DECLARE_JIT_TEST)
 // and python test runners), but is instead invoked manually by the
 // torch_python_test.cpp
 void testEvalModeForLoadedModule();
+void testSerializationInterop();
+void testTorchSaveError();
 
 } // namespace jit
 } // namespace torch

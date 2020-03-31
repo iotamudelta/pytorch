@@ -152,6 +152,7 @@ class ConcatAddMulReplaceNaNClipConverter : public Converter {
     auto max_arg = op.add_arg();
     max_arg->set_name("clip_max");
     max_arg->set_f(cc_amrc->getClipMax());
+    op.mutable_device_option()->CopyFrom(getDeviceOption(nnOp));
     return op;
   }
   ~ConcatAddMulReplaceNaNClipConverter() override {}
@@ -186,6 +187,7 @@ class SliceConverter : public Converter {
         caffe2::MakeArgument<vector<int64_t>>("starts", slice->getStarts()));
     op.add_arg()->CopyFrom(
         caffe2::MakeArgument<vector<int64_t>>("ends", slice->getEnds()));
+    op.mutable_device_option()->CopyFrom(getDeviceOption(nnOp));
     return op;
   }
 
@@ -214,6 +216,10 @@ class ClipRangesGatherSigridHashConverter : public Converter {
     if (args.HasArgument("max_values")) {
       c->setMaxValues(args.GetRepeatedArgument<int64_t>("max_values"));
     }
+    if (args.HasArgument("hash_into_int32")) {
+      c->setHashIntoInt32(
+          args.GetSingleArgument<bool>("hash_into_int32", false));
+    }
     return nnOp;
   }
 
@@ -230,6 +236,9 @@ class ClipRangesGatherSigridHashConverter : public Converter {
         caffe2::MakeArgument<vector<int64_t>>("salts", fuse->getSalts()));
     op.add_arg()->CopyFrom(caffe2::MakeArgument<vector<int64_t>>(
         "max_values", fuse->getMaxValues()));
+    op.add_arg()->CopyFrom(caffe2::MakeArgument<bool>(
+        "hash_into_int32", fuse->getHashIntoInt32()));
+    op.mutable_device_option()->CopyFrom(getDeviceOption(nnOp));
     return op;
   }
 
@@ -257,6 +266,7 @@ class ClipRangesConverter : public Converter {
     op.set_type("ClipRanges");
     op.add_arg()->CopyFrom(caffe2::MakeArgument<int64_t>(
         "max_length", clipRanges->getMaxLength()));
+    op.mutable_device_option()->CopyFrom(getDeviceOption(nnOp));
     return op;
   }
 
@@ -273,6 +283,7 @@ class SigridHashConverter : public Converter {
     auto c = dyn_cast<repr::SigridHash>(nnOp.get());
     c->setSalt(args.GetSingleArgument<int64_t>("salt", 0));
     c->setMaxValue(args.GetSingleArgument<int64_t>("maxValue", 0));
+    c->setHashIntoInt32(args.GetSingleArgument<bool>("hashIntoInt32", false));
     return nnOp;
   }
 
@@ -285,6 +296,9 @@ class SigridHashConverter : public Converter {
         caffe2::MakeArgument<int64_t>("salt", sigridHash->getSalt()));
     op.add_arg()->CopyFrom(
         caffe2::MakeArgument<int64_t>("maxValue", sigridHash->getMaxValue()));
+    op.add_arg()->CopyFrom(caffe2::MakeArgument<bool>(
+        "hashIntoInt32", sigridHash->getHashIntoInt32()));
+    op.mutable_device_option()->CopyFrom(getDeviceOption(nnOp));
     return op;
   }
 

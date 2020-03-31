@@ -1,13 +1,15 @@
 #pragma once
 
 #include <c10/core/DeviceType.h>
-#include <c10/core/TensorTypeId.h>
+#include <c10/core/DispatchKey.h>
 #include <c10/util/Exception.h>
 
 namespace c10 {
 
 /**
  * QEngine is an enum that is used to select the engine to run quantized ops.
+ * Keep this enum in sync with get_qengine_id() in
+ * torch/backends/quantized/__init__.py
  */
 enum class QEngine : uint8_t {
   NoQEngine = 0,

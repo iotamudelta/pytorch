@@ -19,7 +19,7 @@ auto CopyBackwards::apply(variable_list&& grads) -> variable_list {
   auto& grad = grads[0];
   variable_list grad_inputs(2);
   if (should_compute_output(0)) {
-    grad_inputs[0] = at::zeros_like(grad);
+    grad_inputs[0] = at::zeros_like(grad, LEGACY_CONTIGUOUS_MEMORY_FORMAT);
   }
   if (should_compute_output(1)) {
     at::DeviceGuard device_guard(src_device);
@@ -50,7 +50,7 @@ CopySlices::CopySlices(
   add_input_metadata(base_var);
   const auto num_outputs = fn->num_outputs();
   next_edges_.reserve(num_outputs);
-  add_next_edge(base_var.gradient_edge());
+  add_next_edge(impl::gradient_edge(base_var));
   for (size_t i = 1; i < num_outputs; i++) {
     add_next_edge(fn->next_edge(i));
   }
@@ -59,6 +59,10 @@ CopySlices::CopySlices(
 auto CopySlices::apply(variable_list&& inputs) -> variable_list {
   check_input_variables("CopySlices", inputs, 1);
   auto& grad = inputs[0];
+
+  // Acquire lock to here protect thread safety on fn
+  // see Note [Thread Safety on Autograd Node]
+  std::lock_guard<std::mutex> lock(mutex_);
 
   if (!fn) {
     throw std::runtime_error(ERR_BACKWARD_TWICE);
@@ -73,7 +77,7 @@ auto CopySlices::apply(variable_list&& inputs) -> variable_list {
   // TODO: We clone grad_slice because we modify it below and "fn" might save
   // it for the backward of res. We might be able to avoid the clone() if
   // double-backprop is disabled.
-  auto res = (*fn)({ grad_slice.clone() });
+  auto res = (*fn)({ grad_slice.clone(at::MemoryFormat::Contiguous) });
 
   variable_list grad_inputs(num_outputs());
   for (size_t i = 0; i < res.size(); i++) {
@@ -92,6 +96,8 @@ auto CopySlices::apply(variable_list&& inputs) -> variable_list {
 }
 
 void CopySlices::release_variables() {
+  // Acquire lock to here protect thread safety on fn
+  std::lock_guard<std::mutex> lock(mutex_);
   fn = nullptr;
 }
 

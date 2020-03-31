@@ -25,14 +25,14 @@ class CAFFE2_API Context {
  public:
   Context();
 
-  Generator & defaultGenerator(Device device) {
+  const Generator& defaultGenerator(Device device) {
     DeviceType device_type = device.type();
     initCUDAIfNeeded(device_type);
     initHIPIfNeeded(device_type);
     if (device_type == at::kCPU) {
-      return *at::detail::getDefaultCPUGenerator();
+      return at::detail::getDefaultCPUGenerator();
     } else if (device_type == at::kCUDA) {
-      return *at::detail::getCUDAHooks().getDefaultCUDAGenerator(device.index());
+      return at::detail::getCUDAHooks().getDefaultCUDAGenerator(device.index());
     } else {
       AT_ERROR(DeviceTypeName(device_type), " device type not enabled.");
     }
@@ -108,7 +108,8 @@ class CAFFE2_API Context {
   void setDeterministicCuDNN(bool);
   at::QEngine qEngine() const;
   void setQEngine(at::QEngine e);
-  std::vector<at::QEngine> supportedQEngines() const;
+  const std::vector<at::QEngine>& supportedQEngines() const;
+  bool isXNNPACKAvailable() const;
 
  private:
   void initCUDAIfNeeded(DeviceType p) {
@@ -127,12 +128,7 @@ class CAFFE2_API Context {
   bool deterministic_cudnn = false;
   bool benchmark_cudnn = false;
   bool enabled_mkldnn = true;
-  at::QEngine quantized_engine =
-#ifdef USE_FBGEMM
-      at::kFBGEMM;
-#else
-      at::kNoQEngine;
-#endif
+  c10::optional<at::QEngine> quantized_engine = c10::nullopt;
   std::unique_ptr<THCState, void(*)(THCState*)> thc_state;
   std::unique_ptr<THHState, void(*)(THHState*)> thh_state;
 };
@@ -145,24 +141,24 @@ static inline void init() {
 
 CAFFE2_API Allocator* getCPUAllocator();
 
-static inline DeprecatedTypeProperties& getNonVariableDeprecatedTypeProperties(Backend p, ScalarType s) {
+static inline DeprecatedTypeProperties& getDeprecatedTypeProperties(Backend p, ScalarType s) {
   return globalDeprecatedTypePropertiesRegistry().getDeprecatedTypeProperties(
-      p, s, /*is_variable*/false);
+      p, s);
 }
 
 static inline DeprecatedTypeProperties& CPU(ScalarType s) {
   return globalDeprecatedTypePropertiesRegistry().getDeprecatedTypeProperties(
-      Backend::CPU, s, /*is_variable*/false);
+      Backend::CPU, s);
 }
 
 static inline DeprecatedTypeProperties& CUDA(ScalarType s) {
   return globalDeprecatedTypePropertiesRegistry().getDeprecatedTypeProperties(
-      Backend::CUDA, s, /*is_variable*/false);
+      Backend::CUDA, s);
 }
 
 static inline DeprecatedTypeProperties& HIP(ScalarType s) {
   return globalDeprecatedTypePropertiesRegistry().getDeprecatedTypeProperties(
-      Backend::HIP, s, /*is_variable*/false);
+      Backend::HIP, s);
 }
 
 static inline bool hasCUDA() {
@@ -218,22 +214,22 @@ static inline bool hasMKLDNN() {
 }
 
 static inline void manual_seed(uint64_t seed) {
-  auto& gen = globalContext().defaultGenerator(DeviceType::CPU);
+  auto gen = globalContext().defaultGenerator(DeviceType::CPU);
   {
     // See Note [Acquire lock when using random generators]
-    std::lock_guard<std::mutex> lock(gen.mutex_);
-    gen.set_current_seed(seed);
+    std::lock_guard<std::mutex> lock(gen->mutex_);
+    gen->set_current_seed(seed);
   }
   // NB: Sometimes we build with CUDA, but we don't have any GPUs
   // available. In that case, we must not seed CUDA; it will fail!
   int num_gpus = detail::getCUDAHooks().getNumGPUs();
   if (hasCUDA() && num_gpus > 0) {
     for (int i = 0; i < num_gpus; i++) {
-      auto& cuda_gen = globalContext().defaultGenerator(Device(at::kCUDA, i));
+      auto cuda_gen = globalContext().defaultGenerator(Device(at::kCUDA, i));
       {
         // See Note [Acquire lock when using random generators]
-        std::lock_guard<std::mutex> lock(cuda_gen.mutex_);
-        cuda_gen.set_current_seed(seed);
+        std::lock_guard<std::mutex> lock(cuda_gen->mutex_);
+        cuda_gen->set_current_seed(seed);
       }
     }
   }

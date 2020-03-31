@@ -9,6 +9,8 @@ from torch._six import PY2
 from torch._C._jit_tree_views import *
 from torch._utils_internal import get_source_lines_and_file
 
+from torch._jit_internal import SourceContext
+
 # Borrowed from cPython implementation
 # https://github.com/python/cpython/blob/561612d8456cfab5672c9b445521113b847bd6b3/Lib/textwrap.py#L411#
 
@@ -107,7 +109,7 @@ class NotSupportedError(FrontendError):
 
 
 class UnsupportedNodeError(NotSupportedError):
-    def __init__(self, ctx, offending_node):
+    def __init__(self, ctx, offending_node, reason=''):
         # If we don't have a specific token, we default to length of 1
         node_type = type(offending_node)
         range_len = len(node_start_tokens.get(node_type, ' '))
@@ -115,7 +117,7 @@ class UnsupportedNodeError(NotSupportedError):
                                       offending_node.col_offset,
                                       offending_node.col_offset + range_len)
         feature_name = pretty_node_names.get(node_type, node_type.__name__)
-        msg = "{} aren't supported".format(feature_name)
+        msg = "{} {}aren't supported".format(feature_name, reason + ' ' if reason else '')
         super(UnsupportedNodeError, self).__init__(source_range, msg)
 
 
@@ -141,13 +143,15 @@ def _uses_true_division(fn):
 
 
 def get_jit_class_def(cls, self_name):
-    # Get defs for each method independently
+    # Get defs for each method within the current class independently
+    # TODO: proper overriding analysis when implementing class inheritance
     methods = inspect.getmembers(
-        cls, predicate=lambda m: inspect.ismethod(m) or inspect.isfunction(m))
+        cls, predicate=lambda m: (inspect.ismethod(m) or inspect.isfunction(m)) and m.__name__ in cls.__dict__)
+
     method_defs = [get_jit_def(method[1],
                    self_name=self_name) for method in methods]
 
-    sourcelines, file_lineno, filename = get_source_lines_and_file(cls)
+    sourcelines, file_lineno, filename = get_source_lines_and_file(cls, torch._C.ErrorReport.call_stack())
     source = ''.join(sourcelines)
     dedent_src = dedent(source)
     py_ast = ast.parse(dedent_src)
@@ -157,7 +161,7 @@ def get_jit_class_def(cls, self_name):
 
 
 def get_jit_def(fn, self_name=None):
-    sourcelines, file_lineno, filename = get_source_lines_and_file(fn)
+    sourcelines, file_lineno, filename = get_source_lines_and_file(fn, torch._C.ErrorReport.call_stack())
     source = ''.join(sourcelines)
     dedent_src = dedent(source)
     py_ast = ast.parse(dedent_src)
@@ -167,14 +171,6 @@ def get_jit_def(fn, self_name=None):
     type_line = torch.jit.annotations.get_type_line(source)
     ctx = SourceContext(source, filename, file_lineno, leading_whitespace_len, _uses_true_division(fn))
     return build_def(ctx, py_ast.body[0], type_line, self_name)
-
-
-# Thin wrapper around SourceRangeFactory to store extra metadata
-# about the function-to-be-compiled.
-class SourceContext(SourceRangeFactory):
-    def __init__(self, source, filename, file_lineno, leading_whitespace_len, uses_true_division=True):
-        super(SourceContext, self).__init__(source, filename, file_lineno, leading_whitespace_len)
-        self.uses_true_division = uses_true_division
 
 
 class Builder(object):
@@ -193,7 +189,8 @@ def build_class_def(ctx, py_def, methods, self_name):
 
 def build_def(ctx, py_def, type_line, self_name=None):
     body = py_def.body
-    r = ctx.make_range(py_def.lineno, py_def.col_offset,
+    r = ctx.make_range(py_def.lineno + len(py_def.decorator_list),
+                       py_def.col_offset,
                        py_def.col_offset + len("def"))
     param_list = build_param_list(ctx, py_def.args, self_name)
     return_type = None
@@ -222,11 +219,16 @@ def build_param_list(ctx, py_args, self_name):
         expr = py_args.vararg
         ctx_range = ctx.make_range(expr.lineno, expr.col_offset - 1, expr.col_offset + len(expr.arg))
         raise NotSupportedError(ctx_range, _vararg_kwarg_err)
-    if not PY2 and py_args.kw_defaults:
-        raise NotSupportedError(ctx_range, _vararg_kwarg_err)
+    if not PY2 and len(py_args.kw_defaults) > 0:
+        # kw_defaults is a list of the values for the kwargs (which default to None),
+        # so they don't actually have line numbers.
+        for arg in py_args.kw_defaults:
+            if arg is not None:
+                ctx_range = build_expr(ctx, arg).range()
+                raise NotSupportedError(ctx_range, _vararg_kwarg_err)
     result = [build_param(ctx, arg, self_name, False) for arg in py_args.args]
     if not PY2:
-        result += [build_params(ctx, arg, self_name, True) for arg in py_args.kwonlyargs]
+        result += [build_param(ctx, arg, self_name, True) for arg in py_args.kwonlyargs]
     return result
 
 
@@ -245,6 +247,9 @@ def build_param(ctx, py_arg, self_name, kwarg_only):
 
 
 def get_default_args(fn):
+    if fn is None:
+        return {}
+
     if PY2:
         argspec = inspect.getargspec(fn)
         if argspec.defaults is not None:
@@ -286,10 +291,16 @@ class StmtBuilder(Builder):
 
     @staticmethod
     def build_AnnAssign(ctx, stmt):
+        if stmt.value is None:
+            raise UnsupportedNodeError(ctx, stmt, reason='without assigned value')
         rhs = build_expr(ctx, stmt.value)
         lhs = build_expr(ctx, stmt.target)
         the_type = build_expr(ctx, stmt.annotation)
         return Assign([lhs], rhs, the_type)
+
+    @staticmethod
+    def build_Delete(ctx, stmt):
+        return Delete(build_expr(ctx, stmt.targets[0]))
 
     @staticmethod
     def build_Return(ctx, stmt):
@@ -387,6 +398,8 @@ class ExprBuilder(Builder):
         ast.BitAnd: '&',
         ast.BitXor: '^',
         ast.BitOr: '|',
+        ast.LShift: '<<',
+        ast.RShift: '>>',
     }
 
     if not PY2:
