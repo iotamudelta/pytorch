@@ -198,7 +198,7 @@ static inline __device__ void gpuAtomicAdd(double *address, double val) {
 }
 
 static inline __device__ void gpuAtomicAdd(float *address, float val) {
-  atomicAdd(address, val);
+  atomicAddNoRet(address, val);
 }
 
 /* Note [gpuAtomicAdd vs atomicAdd]
